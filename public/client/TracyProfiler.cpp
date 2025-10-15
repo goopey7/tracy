@@ -14,6 +14,7 @@
 #    include <excpt.h>
 #  endif
 #else
+#  include <arpa/inet.h>
 #  include <sys/time.h>
 #  include <sys/param.h>
 #endif
@@ -1955,8 +1956,11 @@ void Profiler::Worker()
                 continue;
             }
 
+			printf("[Client] Received shibboleth: %s\n", shibboleth);
+
             uint32_t protocolVersion;
             res = m_sock->ReadRaw( &protocolVersion, sizeof( protocolVersion ), 2000 );
+			protocolVersion = ntohl(protocolVersion);
             if( !res )
             {
                 m_sock->~Socket();
@@ -1964,6 +1968,8 @@ void Profiler::Worker()
                 m_sock = nullptr;
                 continue;
             }
+
+			printf("[Client] Received protocol version: %d\n", protocolVersion);
 
             if( protocolVersion != ProtocolVersion )
             {

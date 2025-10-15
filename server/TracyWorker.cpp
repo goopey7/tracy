@@ -8,6 +8,7 @@
 #  include <stdlib.h>
 #else
 #  include <alloca.h>
+#  include <arpa/inet.h>
 #endif
 
 #include <cctype>
@@ -2742,7 +2743,7 @@ void Worker::Exec()
     std::chrono::time_point<std::chrono::high_resolution_clock> t0;
 
     m_sock.Send( HandshakeShibboleth, HandshakeShibbolethSize );
-    uint32_t protocolVersion = ProtocolVersion;
+    uint32_t protocolVersion = htonl( ProtocolVersion );
     m_sock.Send( &protocolVersion, sizeof( protocolVersion ) );
     HandshakeStatus handshake;
     if( !m_sock.Read( &handshake, sizeof( handshake ), 10, ShouldExit ) )
@@ -2750,6 +2751,7 @@ void Worker::Exec()
         m_handshake.store( HandshakeDropped, std::memory_order_relaxed );
         goto close;
     }
+	printf("[Server] Received handshake status: %d\n", handshake);
     m_handshake.store( handshake, std::memory_order_relaxed );
     switch( handshake )
     {
