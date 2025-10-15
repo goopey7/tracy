@@ -2775,12 +2775,14 @@ void Worker::Exec()
     } );
 
     {
-        WelcomeMessage welcome;
-        if( !m_sock.Read( &welcome, sizeof( welcome ), 10, ShouldExit ) )
+        WelcomeMessage recv_welcome;
+        if( !m_sock.Read( &recv_welcome, sizeof( recv_welcome ), 10, ShouldExit ) )
         {
             m_handshake.store( HandshakeDropped, std::memory_order_relaxed );
             goto close;
         }
+		WelcomeMessage welcome;
+		Deserialize(welcome, reinterpret_cast<const uint8_t*>(&recv_welcome), sizeof(recv_welcome));
         m_timerMul = welcome.timerMul;
         m_data.baseTime = welcome.initBegin;
         const auto initEnd = TscTime( welcome.initEnd );
@@ -2803,6 +2805,9 @@ void Worker::Exec()
         m_data.cpuId = welcome.cpuId;
         memcpy( m_data.cpuManufacturer, welcome.cpuManufacturer, 12 );
         m_data.cpuManufacturer[12] = '\0';
+		printf("[Server] CPU Manufacturer: %s\n", welcome.cpuManufacturer);
+		printf("[Server] TimerMul: %f\n", welcome.timerMul);
+		printf("[Server] PID: %lu\n", welcome.pid);
 
         char dtmp[64];
         time_t date = welcome.epoch;

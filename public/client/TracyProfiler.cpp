@@ -1761,6 +1761,7 @@ void Profiler::Worker()
     const auto hisz = std::min<size_t>( strlen( hostinfo ), WelcomeMessageHostInfoSize - 1 );
 
     const uint64_t pid = GetPid();
+	printf("[Client] PID: %lu\n", pid);
 
     uint8_t flags = 0;
 
@@ -1994,7 +1995,11 @@ void Profiler::Worker()
         m_sock->Send( &handshake, sizeof( handshake ) );
 
         LZ4_resetStream( (LZ4_stream_t*)m_stream );
-        m_sock->Send( &welcome, sizeof( welcome ) );
+		{
+			WelcomeMessage send_welcome;
+			Serialize(welcome, reinterpret_cast<uint8_t*>(&send_welcome), sizeof(send_welcome));
+			m_sock->Send( &send_welcome, sizeof( send_welcome ) );
+		}
 
         m_threadCtx = 0;
         m_refTimeSerial = 0;
