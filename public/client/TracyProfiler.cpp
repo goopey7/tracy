@@ -3258,7 +3258,7 @@ void Profiler::SafeCopyEpilog( char* buf )
 bool Profiler::SendData( const char* data, size_t len )
 {
     const lz4sz_t lz4sz = LZ4_compress_fast_continue( (LZ4_stream_t*)m_stream, data, m_lz4Buf + sizeof( lz4sz_t ), (int)len, LZ4Size, 1 );
-    memcpy( m_lz4Buf, &lz4sz, sizeof( lz4sz ) );
+	MemWrite(m_lz4Buf, lz4sz);
     return m_sock->Send( m_lz4Buf, lz4sz + sizeof( lz4sz_t ) ) != -1;
 }
 
@@ -3277,7 +3277,8 @@ void Profiler::SendString( uint64_t str, const char* ptr, size_t len, QueueType 
     MemWrite( &item.stringTransfer.ptr, str );
 
     assert( len <= std::numeric_limits<uint16_t>::max() );
-    auto l16 = uint16_t( len );
+    uint16_t l16;
+	MemWrite(&l16, uint16_t(len));
 
     NeedDataSize( QueueDataSize[(int)type] + sizeof( l16 ) + l16 );
 
@@ -3292,7 +3293,8 @@ void Profiler::SendSingleString( const char* ptr, size_t len )
     MemWrite( &item.hdr.type, QueueType::SingleStringData );
 
     assert( len <= std::numeric_limits<uint16_t>::max() );
-    auto l16 = uint16_t( len );
+    uint16_t l16;
+	MemWrite(&l16, uint16_t(len));
 
     NeedDataSize( QueueDataSize[(int)QueueType::SingleStringData] + sizeof( l16 ) + l16 );
 
@@ -3307,7 +3309,8 @@ void Profiler::SendSecondString( const char* ptr, size_t len )
     MemWrite( &item.hdr.type, QueueType::SecondStringData );
 
     assert( len <= std::numeric_limits<uint16_t>::max() );
-    auto l16 = uint16_t( len );
+    uint16_t l16;
+	MemWrite(&l16, uint16_t(len));
 
     NeedDataSize( QueueDataSize[(int)QueueType::SecondStringData] + sizeof( l16 ) + l16 );
 
@@ -3328,7 +3331,8 @@ void Profiler::SendLongString( uint64_t str, const char* ptr, size_t len, QueueT
 
     assert( len <= std::numeric_limits<uint32_t>::max() );
     assert( QueueDataSize[(int)type] + sizeof( uint32_t ) + len <= TargetFrameSize );
-    auto l32 = uint32_t( len );
+    uint32_t l32;
+	MemWrite(&l32, uint32_t(len));
 
     NeedDataSize( QueueDataSize[(int)type] + sizeof( l32 ) + l32 );
 
@@ -3363,6 +3367,7 @@ void Profiler::SendSourceLocationPayload( uint64_t _ptr )
     uint16_t len;
     memcpy( &len, ptr, sizeof( len ) );
     assert( len > 2 );
+	MemWrite(&len, len);
     len -= 2;
     ptr += 2;
 
@@ -3383,7 +3388,8 @@ void Profiler::SendCallstackPayload( uint64_t _ptr )
 
     const auto sz = *ptr++;
     const auto len = sz * sizeof( uint64_t );
-    const auto l16 = uint16_t( len );
+    uint16_t l16;
+	MemWrite(&l16, uint16_t(len));
 
     NeedDataSize( QueueDataSize[(int)QueueType::CallstackPayload] + sizeof( l16 ) + l16 );
 
@@ -3414,7 +3420,8 @@ void Profiler::SendCallstackPayload64( uint64_t _ptr )
 
     const auto sz = *ptr++;
     const auto len = sz * sizeof( uint64_t );
-    const auto l16 = uint16_t( len );
+    uint16_t l16;
+	MemWrite(&l16, uint16_t(len));
 
     NeedDataSize( QueueDataSize[(int)QueueType::CallstackPayload] + sizeof( l16 ) + l16 );
 

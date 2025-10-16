@@ -26,12 +26,28 @@ tracy_force_inline void MemWrite( void* ptr, T val )
     memcpy( ptr, &val, sizeof( T ) );
 }
 
+static inline void float_to_be(float val, uint8_t out[4])
+{
+    uint32_t tmp;
+    memcpy(&tmp, &val, sizeof(tmp));
+    tmp = htobe32(tmp);
+    memcpy(out, &tmp, sizeof(tmp));
+}
+
 static inline void double_to_be(double val, uint8_t out[8])
 {
     uint64_t tmp;
     memcpy(&tmp, &val, sizeof(tmp));
     tmp = htobe64(tmp);
     memcpy(out, &tmp, sizeof(tmp));
+}
+
+template<>
+tracy_force_inline void MemWrite<float>(void* ptr, float val)
+{
+	uint8_t tmp4[4];
+	float_to_be(val, tmp4);
+	memcpy(ptr, tmp4, 4);
 }
 
 template<>
@@ -84,6 +100,16 @@ tracy_force_inline void MemWrite<int64_t>(void* ptr, int64_t val)
 	memcpy(ptr, &val_be, sizeof(uint64_t));
 }
 
+static inline float float_from_be(const uint8_t in[4])
+{
+    uint32_t tmp;
+    memcpy(&tmp, in, sizeof(tmp));
+    tmp = be32toh(tmp);
+    float val;
+    memcpy(&val, &tmp, sizeof(val));
+    return val;
+}
+
 static inline double double_from_be(const uint8_t in[8])
 {
     uint64_t tmp;
@@ -92,6 +118,12 @@ static inline double double_from_be(const uint8_t in[8])
     double val;
     memcpy(&val, &tmp, sizeof(val));
     return val;
+}
+
+template<>
+tracy_force_inline float MemRead(const void* ptr)
+{
+	return float_from_be(static_cast<const uint8_t*>(ptr));
 }
 
 template<>

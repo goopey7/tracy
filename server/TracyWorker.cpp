@@ -3092,14 +3092,12 @@ void Worker::DispatchFailure( const QueueItem& ev, const char*& ptr )
             {
                 m_serverQuerySpaceLeft++;
             }
-            uint32_t sz;
-            memcpy( &sz, ptr, sizeof( sz ) );
+            uint32_t sz = MemRead<uint32_t>(ptr);
             ptr += sizeof( sz ) + sz;
         }
         else
         {
-            uint16_t sz;
-            memcpy( &sz, ptr, sizeof( sz ) );
+            uint16_t sz = MemRead<uint16_t>(ptr);
             ptr += sizeof( sz );
             switch( ev.hdr.type )
             {
@@ -3133,14 +3131,14 @@ void Worker::DispatchFailure( const QueueItem& ev, const char*& ptr )
         {
         case QueueType::SingleStringData:
             ptr += sizeof( QueueHeader );
-            memcpy( &sz, ptr, sizeof( sz ) );
+			sz = MemRead<uint16_t>(ptr);
             ptr += sizeof( sz );
             AddSingleStringFailure( ptr, sz );
             ptr += sz;
             break;
         case QueueType::SecondStringData:
             ptr += sizeof( QueueHeader );
-            memcpy( &sz, ptr, sizeof( sz ) );
+			sz = MemRead<uint16_t>(ptr);
             ptr += sizeof( sz );
             AddSecondString( ptr, sz );
             ptr += sz;
@@ -3261,8 +3259,7 @@ bool Worker::DispatchProcess( const QueueItem& ev, const char*& ptr )
             ev.hdr.type == QueueType::SymbolCode ||
             ev.hdr.type == QueueType::SourceCode )
         {
-            uint32_t sz;
-            memcpy( &sz, ptr, sizeof( sz ) );
+            uint32_t sz = MemRead<uint32_t>(ptr);
             ptr += sizeof( sz );
             switch( ev.hdr.type )
             {
@@ -3285,8 +3282,7 @@ bool Worker::DispatchProcess( const QueueItem& ev, const char*& ptr )
         }
         else
         {
-            uint16_t sz;
-            memcpy( &sz, ptr, sizeof( sz ) );
+            uint16_t sz = MemRead<uint16_t>(ptr);
             ptr += sizeof( sz );
             switch( ev.hdr.type )
             {
@@ -3341,14 +3337,14 @@ bool Worker::DispatchProcess( const QueueItem& ev, const char*& ptr )
         {
         case QueueType::SingleStringData:
             ptr += sizeof( QueueHeader );
-            memcpy( &sz, ptr, sizeof( sz ) );
+			sz = MemRead<uint16_t>(ptr);
             ptr += sizeof( sz );
             AddSingleString( ptr, sz );
             ptr += sz;
             return true;
         case QueueType::SecondStringData:
             ptr += sizeof( QueueHeader );
-            memcpy( &sz, ptr, sizeof( sz ) );
+			sz = MemRead<uint16_t>(ptr);
             ptr += sizeof( sz );
             AddSecondString( ptr, sz );
             ptr += sz;
@@ -4819,10 +4815,10 @@ static tracy_force_inline int64_t RefTime( int64_t& reference, int64_t delta )
 
 void Worker::ProcessZoneBeginImpl( ZoneEvent* zone, const QueueZoneBegin& ev )
 {
-    CheckSourceLocation( ev.srcloc );
+    CheckSourceLocation( MemRead<uint64_t>(&ev.srcloc) );
 
-    const auto start = TscTime( RefTime( m_refTimeThread, ev.time ) );
-    zone->SetStartSrcLoc( start, ShrinkSourceLocation( ev.srcloc ) );
+    const auto start = TscTime( RefTime( m_refTimeThread, MemRead<int64_t>(&ev.time) ) );
+    zone->SetStartSrcLoc( start, ShrinkSourceLocation( MemRead<uint64_t>(&ev.srcloc) ) );
     zone->SetEnd( -1 );
     zone->SetChild( -1 );
 
@@ -4835,7 +4831,7 @@ void Worker::ProcessZoneBeginAllocSrcLocImpl( ZoneEvent* zone, const QueueZoneBe
 {
     assert( m_pendingSourceLocationPayload != 0 );
 
-    const auto start = TscTime( RefTime( m_refTimeThread, ev.time ) );
+    const auto start = TscTime( RefTime( m_refTimeThread, MemRead<int64_t>(&ev.time) ) );
     zone->SetStartSrcLoc( start, m_pendingSourceLocationPayload );
     zone->SetEnd( -1 );
     zone->SetChild( -1 );
@@ -4923,7 +4919,7 @@ void Worker::ProcessZoneEnd( const QueueZoneEnd& ev )
     auto zone = stack.back_and_pop();
     assert( zone->End() == -1 );
     const auto isReentry = td->DecStackCount( zone->SrcLoc() );
-    const auto timeEnd = TscTime( RefTime( m_refTimeThread, ev.time ) );
+    const auto timeEnd = TscTime( RefTime( m_refTimeThread, MemRead<int64_t>(&ev.time) ) );
     zone->SetEnd( timeEnd );
     assert( timeEnd >= zone->Start() );
 
@@ -5100,7 +5096,7 @@ void Worker::SourceLocationOverflowFailure()
 void Worker::ProcessZoneValidation( const QueueZoneValidation& ev )
 {
     auto td = GetCurrentThreadData();
-    td->nextZoneId = ev.id;
+    td->nextZoneId = MemRead<uint32_t>(&ev.id);
 }
 
 void Worker::ProcessFrameMark( const QueueFrameMark& ev )
@@ -5126,7 +5122,7 @@ void Worker::ProcessFrameMark( const QueueFrameMark& ev )
     }
 
     assert( fd->continuous == 1 );
-    const auto time = TscTime( ev.time );
+    const auto time = TscTime( MemRead<int64_t>(&ev.time) );
     assert( fd->frames.empty() || fd->frames.back().start <= time );
     fd->frames.push_back( FrameEvent{ time, -1, frameImage } );
     if( m_data.lastTime < time ) m_data.lastTime = time;
@@ -5155,7 +5151,7 @@ void Worker::ProcessFrameMarkStart( const QueueFrameMark& ev )
     } );
 
     assert( fd->continuous == 0 );
-    const auto time = TscTime( ev.time );
+    const auto time = TscTime( MemRead<int64_t>(&ev.time) );
     assert( fd->frames.empty() || ( fd->frames.back().end <= time && fd->frames.back().end != -1 ) );
     fd->frames.push_back( FrameEvent{ time, -1, -1 } );
     if( m_data.lastTime < time ) m_data.lastTime = time;
@@ -5181,7 +5177,7 @@ void Worker::ProcessFrameMarkEnd( const QueueFrameMark& ev )
         if( !m_ignoreFrameEndFaults ) FrameEndFailure();
         return;
     }
-    const auto time = TscTime( ev.time );
+    const auto time = TscTime( MemRead<int64_t>(&ev.time) );
     assert( fd->frames.back().end == -1 );
     fd->frames.back().end = time;
     if( m_data.lastTime < time ) m_data.lastTime = time;
@@ -5200,7 +5196,7 @@ void Worker::ProcessFrameMarkEnd( const QueueFrameMark& ev )
 
 void Worker::ProcessFrameVsync( const QueueFrameVsync& ev )
 {
-    auto it = m_vsyncFrameMap.find( ev.id );
+    auto it = m_vsyncFrameMap.find( MemRead<uint32_t>(&ev.id) );
     if( it == m_vsyncFrameMap.end() )
     {
         auto fd = m_slab.AllocInit<FrameData>();
@@ -5209,11 +5205,11 @@ void Worker::ProcessFrameVsync( const QueueFrameVsync& ev )
         fd->name = uint64_t( m_vsyncFrameMap.size() ) | 0x8000000000000000;
         fd->continuous = 1;
         m_data.frames.AddExternal( fd );
-        it = m_vsyncFrameMap.emplace( ev.id, fd ).first;
+        it = m_vsyncFrameMap.emplace( MemRead<uint32_t>(&ev.id), fd ).first;
     }
     auto fd = it->second;
     assert( fd->continuous == 1 );
-    const auto time = TscTime( ev.time );
+    const auto time = TscTime( MemRead<int64_t>(&ev.time) );
     assert( fd->frames.empty() || fd->frames.back().start <= time );
     fd->frames.push_back( FrameEvent{ time, -1, -1 } );
     if( m_data.lastTime < time ) m_data.lastTime = time;
@@ -5235,7 +5231,7 @@ void Worker::ProcessFrameImage( const QueueFrameImage& ev )
     assert( m_pendingFrameImageData.image != nullptr );
 
     auto& frames = m_data.framesBase->frames;
-    const auto fidx = int64_t( ev.frame ) - int64_t( m_data.frameOffset ) + 1;
+    const auto fidx = int64_t( MemRead<uint32_t>(&ev.frame) ) - int64_t( m_data.frameOffset ) + 1;
     if( m_onDemand && fidx <= 1 )
     {
         m_pendingFrameImageData.image = nullptr;
@@ -5250,8 +5246,8 @@ void Worker::ProcessFrameImage( const QueueFrameImage& ev )
     auto fi = m_slab.Alloc<FrameImage>();
     fi->ptr = m_pendingFrameImageData.image;
     fi->csz = m_pendingFrameImageData.csz;
-    fi->w = ev.w;
-    fi->h = ev.h;
+    fi->w = MemRead<uint16_t>(&ev.w);
+    fi->h = MemRead<uint16_t>(&ev.h);
     fi->frameRef = uint32_t( fidx );
     fi->flip = ev.flip;
 
@@ -5373,18 +5369,18 @@ void Worker::ProcessZoneColor( const QueueZoneColor& ev )
 void Worker::ProcessZoneValue( const QueueZoneValue& ev )
 {
     char tmp[64];
-    const auto tsz = sprintf( tmp, "%" PRIu64 " [0x%" PRIx64 "]", ev.value, ev.value );
+    const auto tsz = sprintf( tmp, "%" PRIu64 " [0x%" PRIx64 "]", MemRead<uint64_t>(&ev.value), MemRead<uint64_t>(&ev.value) );
 
     auto td = RetrieveThread( m_threadCtx );
     if( !td )
     {
-        ZoneValueFailure( m_threadCtx, ev.value );
+        ZoneValueFailure( m_threadCtx, MemRead<uint64_t>(&ev.value) );
         return;
     }
     if( td->fiber ) td = td->fiber;
     if( td->stack.empty() || td->nextZoneId != td->zoneIdStack.back() )
     {
-        ZoneValueFailure( td->id, ev.value );
+        ZoneValueFailure( td->id, MemRead<uint64_t>(&ev.value) );
         return;
     }
 
@@ -5417,66 +5413,66 @@ void Worker::ProcessZoneValue( const QueueZoneValue& ev )
 
 void Worker::ProcessLockAnnounce( const QueueLockAnnounce& ev )
 {
-    auto it = m_data.lockMap.find( ev.id );
+    auto it = m_data.lockMap.find( MemRead<uint32_t>(&ev.id) );
     assert( it == m_data.lockMap.end() );
     auto lm = m_slab.AllocInit<LockMap>();
-    lm->srcloc = ShrinkSourceLocation( ev.lckloc );
+    lm->srcloc = ShrinkSourceLocation( MemRead<uint64_t>(&ev.lckloc) );
     lm->type = ev.type;
-    lm->timeAnnounce = TscTime( ev.time );
+    lm->timeAnnounce = TscTime( MemRead<int64_t>(&ev.time) );
     lm->timeTerminate = 0;
     lm->valid = true;
     lm->isContended = false;
     lm->lockingThread = 0;
-    m_data.lockMap.emplace( ev.id, lm );
-    CheckSourceLocation( ev.lckloc );
+    m_data.lockMap.emplace( MemRead<uint32_t>(&ev.id), lm );
+    CheckSourceLocation( MemRead<uint64_t>(&ev.lckloc) );
 }
 
 void Worker::ProcessLockTerminate( const QueueLockTerminate& ev )
 {
-    auto it = m_data.lockMap.find( ev.id );
+    auto it = m_data.lockMap.find( MemRead<uint32_t>(&ev.id) );
     assert( it != m_data.lockMap.end() );
-    it->second->timeTerminate = TscTime( ev.time );
+    it->second->timeTerminate = TscTime( MemRead<int64_t>(&ev.time) );
 }
 
 void Worker::ProcessLockWait( const QueueLockWait& ev )
 {
-    auto it = m_data.lockMap.find( ev.id );
+    auto it = m_data.lockMap.find( MemRead<uint32_t>(&ev.id) );
     assert( it != m_data.lockMap.end() );
     auto& lock = *it->second;
 
     auto lev = lock.type == LockType::Lockable ? m_slab.Alloc<LockEvent>() : m_slab.Alloc<LockEventShared>();
-    const auto time = TscTime( RefTime( m_refTimeSerial, ev.time ) );
+    const auto time = TscTime( RefTime( m_refTimeSerial, MemRead<int64_t>(&ev.time) ) );
     lev->SetTime( time );
     lev->SetSrcLoc( 0 );
     lev->type = LockEvent::Type::Wait;
 
-    InsertLockEvent( lock, lev, ev.thread, time );
+    InsertLockEvent( lock, lev, MemRead<uint32_t>(&ev.thread), time );
 }
 
 void Worker::ProcessLockObtain( const QueueLockObtain& ev )
 {
-    auto it = m_data.lockMap.find( ev.id );
+    auto it = m_data.lockMap.find( MemRead<uint32_t>(&ev.id) );
     assert( it != m_data.lockMap.end() );
     auto& lock = *it->second;
 
     auto lev = lock.type == LockType::Lockable ? m_slab.Alloc<LockEvent>() : m_slab.Alloc<LockEventShared>();
-    const auto time = TscTime( RefTime( m_refTimeSerial, ev.time ) );
+    const auto time = TscTime( RefTime( m_refTimeSerial, MemRead<int64_t>(&ev.time) ) );
     lev->SetTime( time );
     lev->SetSrcLoc( 0 );
     lev->type = LockEvent::Type::Obtain;
 
-    InsertLockEvent( lock, lev, ev.thread, time );
-    lock.lockingThread = ev.thread;
+    InsertLockEvent( lock, lev, MemRead<uint32_t>(&ev.thread), time );
+    lock.lockingThread = MemRead<uint32_t>(&ev.thread);
 }
 
 void Worker::ProcessLockRelease( const QueueLockRelease& ev )
 {
-    auto it = m_data.lockMap.find( ev.id );
+    auto it = m_data.lockMap.find( MemRead<uint32_t>(&ev.id) );
     assert( it != m_data.lockMap.end() );
     auto& lock = *it->second;
 
     auto lev = lock.type == LockType::Lockable ? m_slab.Alloc<LockEvent>() : m_slab.Alloc<LockEventShared>();
-    const auto time = TscTime( RefTime( m_refTimeSerial, ev.time ) );
+    const auto time = TscTime( RefTime( m_refTimeSerial, MemRead<int64_t>(&ev.time) ) );
     lev->SetTime( time );
     lev->SetSrcLoc( 0 );
     lev->type = LockEvent::Type::Release;
@@ -5486,59 +5482,59 @@ void Worker::ProcessLockRelease( const QueueLockRelease& ev )
 
 void Worker::ProcessLockSharedWait( const QueueLockWait& ev )
 {
-    auto it = m_data.lockMap.find( ev.id );
+    auto it = m_data.lockMap.find( MemRead<uint32_t>(&ev.id) );
     assert( it != m_data.lockMap.end() );
     auto& lock = *it->second;
 
     assert( lock.type == LockType::SharedLockable );
     auto lev = m_slab.Alloc<LockEventShared>();
-    const auto time = TscTime( RefTime( m_refTimeSerial, ev.time ) );
+    const auto time = TscTime( RefTime( m_refTimeSerial, MemRead<int64_t>(&ev.time) ) );
     lev->SetTime( time );
     lev->SetSrcLoc( 0 );
     lev->type = LockEvent::Type::WaitShared;
 
-    InsertLockEvent( lock, lev, ev.thread, time );
+    InsertLockEvent( lock, lev, MemRead<uint32_t>(&ev.thread), time );
 }
 
 void Worker::ProcessLockSharedObtain( const QueueLockObtain& ev )
 {
-    auto it = m_data.lockMap.find( ev.id );
+    auto it = m_data.lockMap.find( MemRead<uint32_t>(&ev.id) );
     assert( it != m_data.lockMap.end() );
     auto& lock = *it->second;
 
     assert( lock.type == LockType::SharedLockable );
     auto lev = m_slab.Alloc<LockEventShared>();
-    const auto time = TscTime( RefTime( m_refTimeSerial, ev.time ) );
+    const auto time = TscTime( RefTime( m_refTimeSerial, MemRead<int64_t>(&ev.time) ) );
     lev->SetTime( time );
     lev->SetSrcLoc( 0 );
     lev->type = LockEvent::Type::ObtainShared;
 
-    InsertLockEvent( lock, lev, ev.thread, time );
+    InsertLockEvent( lock, lev, MemRead<uint32_t>(&ev.thread), time );
 }
 
 void Worker::ProcessLockSharedRelease( const QueueLockReleaseShared& ev )
 {
-    auto it = m_data.lockMap.find( ev.id );
+    auto it = m_data.lockMap.find( MemRead<uint32_t>(&ev.id) );
     assert( it != m_data.lockMap.end() );
     auto& lock = *it->second;
 
     assert( lock.type == LockType::SharedLockable );
     auto lev = m_slab.Alloc<LockEventShared>();
-    const auto time = TscTime( RefTime( m_refTimeSerial, ev.time ) );
+    const auto time = TscTime( RefTime( m_refTimeSerial, MemRead<int64_t>(&ev.time) ) );
     lev->SetTime( time );
     lev->SetSrcLoc( 0 );
     lev->type = LockEvent::Type::ReleaseShared;
 
-    InsertLockEvent( lock, lev, ev.thread, time );
+    InsertLockEvent( lock, lev, MemRead<uint32_t>(&ev.thread), time );
 }
 
 void Worker::ProcessLockMark( const QueueLockMark& ev )
 {
-    CheckSourceLocation( ev.srcloc );
-    auto lit = m_data.lockMap.find( ev.id );
+    CheckSourceLocation( MemRead<uint64_t>(&ev.srcloc) );
+    auto lit = m_data.lockMap.find( MemRead<uint32_t>(&ev.id) );
     assert( lit != m_data.lockMap.end() );
     auto& lockmap = *lit->second;
-    auto tid = lockmap.threadMap.find( ev.thread );
+    auto tid = lockmap.threadMap.find( MemRead<uint32_t>(&ev.thread) );
     assert( tid != lockmap.threadMap.end() );
     const auto thread = tid->second;
     auto it = lockmap.timeline.end();
@@ -5553,7 +5549,7 @@ void Worker::ProcessLockMark( const QueueLockMark& ev )
             case LockEvent::Type::ObtainShared:
             case LockEvent::Type::Wait:
             case LockEvent::Type::WaitShared:
-                it->ptr->SetSrcLoc( ShrinkSourceLocation( ev.srcloc ) );
+                it->ptr->SetSrcLoc( ShrinkSourceLocation( MemRead<uint64_t>(&ev.srcloc) ) );
                 return;
             default:
                 break;
@@ -5564,26 +5560,26 @@ void Worker::ProcessLockMark( const QueueLockMark& ev )
 
 void Worker::ProcessLockName( const QueueLockName& ev )
 {
-    auto lit = m_data.lockMap.find( ev.id );
+    auto lit = m_data.lockMap.find( MemRead<uint32_t>(&ev.id) );
     assert( lit != m_data.lockMap.end() );
     lit->second->customName = StringIdx( GetSingleStringIdx() );
 }
 
 void Worker::ProcessPlotDataInt( const QueuePlotDataInt& ev )
 {
-    ProcessPlotDataImpl( ev.name, ev.time, (double)ev.val );
+    ProcessPlotDataImpl( MemRead<uint64_t>(&ev.name), MemRead<int64_t>(&ev.time), (double)MemRead<int64_t>(&ev.val) );
 }
 
 void Worker::ProcessPlotDataFloat( const QueuePlotDataFloat& ev )
 {
-    if( !isfinite( ev.val ) ) return;
-    ProcessPlotDataImpl( ev.name, ev.time, (double)ev.val );
+    if( !isfinite( MemRead<float>(&ev.val) ) ) return;
+    ProcessPlotDataImpl( MemRead<uint64_t>(&ev.name), MemRead<int64_t>(&ev.time), (double)MemRead<int64_t>(&ev.val) );
 }
 
 void Worker::ProcessPlotDataDouble( const QueuePlotDataDouble& ev )
 {
-    if( !isfinite( ev.val ) ) return;
-    ProcessPlotDataImpl( ev.name, ev.time, ev.val );
+    if( !isfinite( MemRead<double>(&ev.val) ) ) return;
+    ProcessPlotDataImpl( MemRead<uint64_t>(&ev.name), MemRead<int64_t>(&ev.time), MemRead<double>(&ev.val) );
 }
 
 void Worker::ProcessPlotDataImpl( uint64_t name, int64_t evTime, double val )
@@ -5608,7 +5604,7 @@ void Worker::ProcessPlotDataImpl( uint64_t name, int64_t evTime, double val )
 
 void Worker::ProcessPlotConfig( const QueuePlotConfig& ev )
 {
-    PlotData* plot = m_data.plots.Retrieve( ev.name, [this] ( uint64_t name ) {
+    PlotData* plot = m_data.plots.Retrieve( MemRead<uint64_t>(&ev.name), [this] ( uint64_t name ) {
         auto plot = m_slab.AllocInit<PlotData>();
         plot->name = name;
         plot->type = PlotType::User;
@@ -5620,14 +5616,14 @@ void Worker::ProcessPlotConfig( const QueuePlotConfig& ev )
     plot->format = (PlotValueFormatting)ev.type;
     plot->showSteps = ev.step;
     plot->fill = ev.fill;
-    plot->color = ev.color & 0xFFFFFF;
+    plot->color = MemRead<uint32_t>(&ev.color) & 0xFFFFFF;
 }
 
 void Worker::ProcessMessage( const QueueMessage& ev )
 {
     auto td = GetCurrentThreadData();
     auto msg = m_slab.Alloc<MessageData>();
-    const auto time = TscTime( ev.time );
+    const auto time = TscTime( MemRead<int64_t>(&ev.time) );
     msg->time = time;
     msg->ref = StringRef( StringRef::Type::Idx, GetSingleStringIdx() );
     msg->thread = CompressThread( td->id );
@@ -5640,11 +5636,11 @@ void Worker::ProcessMessage( const QueueMessage& ev )
 void Worker::ProcessMessageLiteral( const QueueMessageLiteral& ev )
 {
     auto td = GetCurrentThreadData();
-    CheckString( ev.text );
+    CheckString( MemRead<uint64_t>(&ev.text) );
     auto msg = m_slab.Alloc<MessageData>();
-    const auto time = TscTime( ev.time );
+    const auto time = TscTime( MemRead<int64_t>(&ev.time) );
     msg->time = time;
-    msg->ref = StringRef( StringRef::Type::Ptr, ev.text );
+    msg->ref = StringRef( StringRef::Type::Ptr, MemRead<uint64_t>(&ev.text) );
     msg->thread = CompressThread( td->id );
     msg->color = 0xFFFFFFFF;
     msg->callstack.SetVal( 0 );
@@ -5656,7 +5652,7 @@ void Worker::ProcessMessageColor( const QueueMessageColor& ev )
 {
     auto td = GetCurrentThreadData();
     auto msg = m_slab.Alloc<MessageData>();
-    const auto time = TscTime( ev.time );
+    const auto time = TscTime( MemRead<int64_t>(&ev.time) );
     msg->time = time;
     msg->ref = StringRef( StringRef::Type::Idx, GetSingleStringIdx() );
     msg->thread = CompressThread( td->id );
@@ -5669,11 +5665,11 @@ void Worker::ProcessMessageColor( const QueueMessageColor& ev )
 void Worker::ProcessMessageLiteralColor( const QueueMessageColorLiteral& ev )
 {
     auto td = GetCurrentThreadData();
-    CheckString( ev.text );
+    CheckString( MemRead<uint64_t>(&ev.text) );
     auto msg = m_slab.Alloc<MessageData>();
-    const auto time = TscTime( ev.time );
+    const auto time = TscTime( MemRead<int64_t>(&ev.time) );
     msg->time = time;
-    msg->ref = StringRef( StringRef::Type::Ptr, ev.text );
+    msg->ref = StringRef( StringRef::Type::Ptr, MemRead<uint64_t>(&ev.text) );
     msg->thread = CompressThread( td->id );
     msg->color = 0xFF000000 | ( ev.b << 16 ) | ( ev.g << 8 ) | ev.r;
     msg->callstack.SetVal( 0 );
@@ -5724,7 +5720,7 @@ void Worker::ProcessMessageLiteralColorCallstack( const QueueMessageColorLiteral
 void Worker::ProcessMessageAppInfo( const QueueMessage& ev )
 {
     m_data.appInfo.push_back( StringRef( StringRef::Type::Idx, GetSingleStringIdx() ) );
-    const auto time = TscTime( ev.time );
+    const auto time = TscTime( MemRead<int64_t>(&ev.time) );
     if( m_data.lastTime < time ) m_data.lastTime = time;
 }
 
@@ -5734,24 +5730,24 @@ void Worker::ProcessGpuNewContext( const QueueGpuNewContext& ev )
     assert( ev.type != GpuContextType::Invalid );
 
     int64_t gpuTime;
-    if( ev.period == 1.f )
+    if( MemRead<float>(&ev.period) == 1.f )
     {
-        gpuTime = ev.gpuTime;
+        gpuTime = MemRead<int64_t>(&ev.gpuTime);
     }
     else
     {
-        gpuTime = int64_t( double( ev.period ) * ev.gpuTime );      // precision loss
+        gpuTime = int64_t( double( MemRead<float>(&ev.period) ) * MemRead<int64_t>(&ev.gpuTime) );      // precision loss
     }
 
-    const auto cpuTime = TscTime( ev.cpuTime );
+    const auto cpuTime = TscTime( MemRead<int64_t>(&ev.cpuTime) );
     auto gpu = m_slab.AllocInit<GpuCtxData>();
     memset( (char*)gpu->query, 0, sizeof( gpu->query ) );
     gpu->timeDiff = cpuTime - gpuTime;
-    gpu->thread = ev.thread;
-    gpu->period = ev.period;
+    gpu->thread = MemRead<uint32_t>(&ev.thread);
+    gpu->period = MemRead<float>(&ev.period);
     gpu->count = 0;
     gpu->type = ev.type;
-    gpu->hasPeriod = ev.period != 1.f;
+    gpu->hasPeriod = MemRead<float>(&ev.period) != 1.f;
     gpu->hasCalibration = ev.flags & GpuContextCalibration;
     gpu->calibratedGpuTime = gpuTime;
     gpu->calibratedCpuTime = cpuTime;
@@ -5765,8 +5761,8 @@ void Worker::ProcessGpuNewContext( const QueueGpuNewContext& ev )
 
 void Worker::ProcessGpuZoneBeginImpl( GpuEvent* zone, const QueueGpuZoneBegin& ev, bool serial )
 {
-    CheckSourceLocation( ev.srcloc );
-    zone->SetSrcLoc( ShrinkSourceLocation( ev.srcloc ) );
+    CheckSourceLocation( MemRead<uint64_t>(&ev.srcloc) );
+    zone->SetSrcLoc( ShrinkSourceLocation( MemRead<uint64_t>(&ev.srcloc) ) );
     ProcessGpuZoneBeginImplCommon( zone, ev, serial );
 }
 
@@ -5788,11 +5784,11 @@ void Worker::ProcessGpuZoneBeginImplCommon( GpuEvent* zone, const QueueGpuZoneBe
     int64_t cpuTime;
     if( serial )
     {
-        cpuTime = RefTime( m_refTimeSerial, ev.cpuTime );
+        cpuTime = RefTime( m_refTimeSerial, MemRead<int64_t>(&ev.cpuTime) );
     }
     else
     {
-        cpuTime = RefTime( m_refTimeThread, ev.cpuTime );
+        cpuTime = RefTime( m_refTimeThread, MemRead<int64_t>(&ev.cpuTime) );
     }
     const auto time = TscTime( cpuTime );
     zone->SetCpuStart( time );
@@ -5801,14 +5797,14 @@ void Worker::ProcessGpuZoneBeginImplCommon( GpuEvent* zone, const QueueGpuZoneBe
     zone->SetGpuEnd( -1 );
     zone->callstack.SetVal( 0 );
     zone->SetChild( -1 );
-    zone->query_id = ev.queryId;
+    zone->query_id = MemRead<uint16_t>(&ev.queryId);
 
     uint64_t ztid;
     if( ctx->thread == 0 )
     {
         // Vulkan, OpenCL and Direct3D 12 contexts are not bound to any single thread.
-        zone->SetThread( CompressThread( ev.thread ) );
-        ztid = ev.thread;
+        zone->SetThread( CompressThread( MemRead<uint32_t>(&ev.thread) ) );
+        ztid = MemRead<uint32_t>(&ev.thread);
     }
     else
     {
@@ -5841,8 +5837,8 @@ void Worker::ProcessGpuZoneBeginImplCommon( GpuEvent* zone, const QueueGpuZoneBe
     timeline->push_back( zone );
     stack.push_back( zone );
 
-    assert( !ctx->query[ev.queryId] );
-    ctx->query[ev.queryId] = zone;
+    assert( !ctx->query[MemRead<uint16_t>(&ev.queryId)] );
+    ctx->query[MemRead<uint16_t>(&ev.queryId)] = zone;
 }
 
 void Worker::ProcessGpuZoneBegin( const QueueGpuZoneBegin& ev, bool serial )
@@ -5902,23 +5898,23 @@ void Worker::ProcessGpuZoneEnd( const QueueGpuZoneEnd& ev, bool serial )
     auto ctx = m_gpuCtxMap[ev.context];
     assert( ctx );
 
-    auto td = ctx->threadData.find( ev.thread );
+    auto td = ctx->threadData.find( MemRead<uint32_t>(&ev.thread) );
     assert( td != ctx->threadData.end() );
 
     assert( !td->second.stack.empty() );
     auto zone = td->second.stack.back_and_pop();
 
-    assert( !ctx->query[ev.queryId] );
-    ctx->query[ev.queryId] = zone;
+    assert( !ctx->query[MemRead<uint16_t>(&ev.queryId)] );
+    ctx->query[MemRead<uint16_t>(&ev.queryId)] = zone;
 
     int64_t cpuTime;
     if( serial )
     {
-        cpuTime = RefTime( m_refTimeSerial, ev.cpuTime );
+        cpuTime = RefTime( m_refTimeSerial, MemRead<int64_t>(&ev.cpuTime) );
     }
     else
     {
-        cpuTime = RefTime( m_refTimeThread, ev.cpuTime );
+        cpuTime = RefTime( m_refTimeThread, MemRead<int64_t>(&ev.cpuTime) );
     }
     const auto time = TscTime( cpuTime );
     zone->SetCpuEnd( time );
@@ -5930,7 +5926,7 @@ void Worker::ProcessGpuTime( const QueueGpuTime& ev )
     auto ctx = m_gpuCtxMap[ev.context];
     assert( ctx );
 
-    int64_t tgpu = RefTime( m_refTimeGpu, ev.gpuTime );
+    int64_t tgpu = RefTime( m_refTimeGpu, MemRead<int64_t>(&ev.gpuTime) );
     if( tgpu < ctx->lastGpuTime - ( 1u << 31 ) )
     {
         if( ctx->overflow == 0 )
@@ -5969,9 +5965,9 @@ void Worker::ProcessGpuTime( const QueueGpuTime& ev )
         }
     }
 
-    auto zone = ctx->query[ev.queryId];
+    auto zone = ctx->query[MemRead<uint16_t>(&ev.queryId)];
     assert( zone );
-    ctx->query[ev.queryId] = nullptr;
+    ctx->query[MemRead<uint16_t>(&ev.queryId)] = nullptr;
 
     if( zone->GpuStart() < 0 )
     {
@@ -6012,18 +6008,18 @@ void Worker::ProcessGpuCalibration( const QueueGpuCalibration& ev )
     int64_t gpuTime;
     if( !ctx->hasPeriod )
     {
-        gpuTime = ev.gpuTime;
+        gpuTime = MemRead<int64_t>(&ev.gpuTime);
     }
     else
     {
-        gpuTime = int64_t( double( ctx->period ) * ev.gpuTime );      // precision loss
+        gpuTime = int64_t( double( ctx->period ) * MemRead<int64_t>(&ev.gpuTime) );      // precision loss
     }
 
-    const auto cpuDelta = ev.cpuDelta;
+    const auto cpuDelta = MemRead<int64_t>(&ev.cpuDelta);
     const auto gpuDelta = gpuTime - ctx->calibratedGpuTime;
     ctx->calibrationMod = double( cpuDelta ) / gpuDelta;
     ctx->calibratedGpuTime = gpuTime;
-    ctx->calibratedCpuTime = TscTime( ev.cpuTime );
+    ctx->calibratedCpuTime = TscTime( MemRead<int64_t>(&ev.cpuTime) );
 }
 
 void Worker::ProcessGpuTimeSync( const QueueGpuTimeSync& ev )
@@ -6034,14 +6030,14 @@ void Worker::ProcessGpuTimeSync( const QueueGpuTimeSync& ev )
     int64_t gpuTime;
     if( ctx->period == 1.f )
     {
-        gpuTime = ev.gpuTime;
+        gpuTime = MemRead<int64_t>(&ev.gpuTime);
     }
     else
     {
-        gpuTime = int64_t( double( ctx->period ) * ev.gpuTime );      // precision loss
+        gpuTime = int64_t( double( ctx->period ) * MemRead<int64_t>(&ev.gpuTime) );      // precision loss
     }
 
-    const auto cpuTime = TscTime( ev.cpuTime );
+    const auto cpuTime = TscTime( MemRead<int64_t>(&ev.cpuTime) );
 
     ctx->timeDiff = cpuTime - gpuTime;
     ctx->lastGpuTime = 0;
@@ -6062,48 +6058,46 @@ void Worker::ProcessGpuAnnotationName( const QueueGpuAnnotationName& ev )
     auto ctx = m_gpuCtxMap[ev.context];
     assert( ctx );
     const auto idx = GetSingleStringIdx();
-    ctx->noteNames[ev.noteId] = StringIdx( idx );
+    ctx->noteNames[MemRead<int64_t>(&ev.noteId)] = StringIdx( idx );
 }
 
 void Worker::ProcessGpuZoneAnnotation( const QueueGpuZoneAnnotation& ev )
 {
     auto ctx = m_gpuCtxMap[ev.context];
     assert( ctx );
-    auto note = ctx->notes.find( ev.queryId );
+    auto note = ctx->notes.find( MemRead<uint16_t>(&ev.queryId) );
     if( note == ctx->notes.end() ) {
-      note = ctx->notes.emplace( ev.queryId, decltype(ctx->notes)::mapped_type{} ).first;
+      note = ctx->notes.emplace( MemRead<uint16_t>(&ev.queryId), decltype(ctx->notes)::mapped_type{} ).first;
       note->second.reserve( ctx->noteNames.size() );
     }
-    note->second[ev.noteId] = ev.value;
+    note->second[MemRead<int64_t>(&ev.noteId)] = MemRead<double>(&ev.value);
 }
 
 MemEvent* Worker::ProcessMemAllocImpl( MemData& memdata, const QueueMemAlloc& ev )
 {
-    if( memdata.active.find( ev.ptr ) != memdata.active.end() )
+    if( memdata.active.find( MemRead<uint64_t>(&ev.ptr) ) != memdata.active.end() )
     {
-        MemAllocTwiceFailure( ev.thread );
+        MemAllocTwiceFailure( MemRead<uint32_t>(&ev.thread) );
         return nullptr;
     }
 
-    const auto time = TscTime( RefTime( m_refTimeSerial, ev.time ) );
+    const auto time = TscTime( RefTime( m_refTimeSerial, MemRead<int64_t>(&ev.time) ) );
     if( m_data.lastTime < time ) m_data.lastTime = time;
-    NoticeThread( ev.thread );
+    NoticeThread( MemRead<uint32_t>(&ev.thread) );
 
     assert( memdata.data.empty() || memdata.data.back().TimeAlloc() <= time );
 
-    memdata.active.emplace( ev.ptr, memdata.data.size() );
+    memdata.active.emplace( MemRead<uint64_t>(&ev.ptr), memdata.data.size() );
 
-    const auto ptr = ev.ptr;
-    uint32_t lo;
-    uint16_t hi;
-    memcpy( &lo, ev.size, 4 );
-    memcpy( &hi, ev.size+4, 2 );
+    const auto ptr = MemRead<uint64_t>(&ev.ptr);
+    uint32_t lo = MemRead<uint32_t>(&ev.size);
+    uint16_t hi = MemRead<uint16_t>(&ev.size + 4);
     const uint64_t size = lo | ( uint64_t( hi ) << 32 );
 
     auto& mem = memdata.data.push_next();
     mem.SetPtr( ptr );
     mem.SetSize( size );
-    mem.SetTimeThreadAlloc( time, CompressThread( ev.thread ) );
+    mem.SetTimeThreadAlloc( time, CompressThread( MemRead<uint32_t>(&ev.thread) ) );
     mem.SetTimeThreadFree( -1, 0 );
     mem.SetCsAlloc( 0 );
     mem.csFree.SetVal( 0 );
@@ -6122,28 +6116,28 @@ MemEvent* Worker::ProcessMemAllocImpl( MemData& memdata, const QueueMemAlloc& ev
 
 MemEvent* Worker::ProcessMemFreeImpl( MemData& memdata, const QueueMemFree& ev )
 {
-    const auto refTime = RefTime( m_refTimeSerial, ev.time );
+    const auto refTime = RefTime( m_refTimeSerial, MemRead<int64_t>(&ev.time) );
 
-    auto it = memdata.active.find( ev.ptr );
+    auto it = memdata.active.find( MemRead<uint64_t>(&ev.ptr) );
     if( it == memdata.active.end() )
     {
-        if( ev.ptr == 0 ) return nullptr;
+        if( MemRead<uint64_t>(&ev.ptr) == 0 ) return nullptr;
 
         if( !m_ignoreMemFreeFaults )
         {
-            CheckThreadString( ev.thread );
-            MemFreeFailure( ev.thread );
+            CheckThreadString( MemRead<uint32_t>(&ev.thread) );
+            MemFreeFailure( MemRead<uint32_t>(&ev.thread) );
         }
         return nullptr;
     }
 
     const auto time = TscTime( refTime );
     if( m_data.lastTime < time ) m_data.lastTime = time;
-    NoticeThread( ev.thread );
+    NoticeThread( MemRead<uint32_t>(&ev.thread) );
 
     memdata.frees.push_back( it->second );
     auto& mem = memdata.data[it->second];
-    mem.SetTimeThreadFree( time, CompressThread( ev.thread ) );
+    mem.SetTimeThreadFree( time, CompressThread( MemRead<uint32_t>(&ev.thread) ) );
     memdata.usage -= mem.Size();
     memdata.active.erase( it );
 
@@ -6248,16 +6242,16 @@ void Worker::ProcessMemFreeCallstackNamed( const QueueMemFree& ev )
 void Worker::ProcessMemDiscard( const QueueMemDiscard& ev )
 {
     assert( m_memNamePayload == 0 );
-    auto it = m_data.memNameMap.find( ev.name );
+    auto it = m_data.memNameMap.find( MemRead<uint64_t>(&ev.name) );
     if( it == m_data.memNameMap.end() ) return;
 
-    const auto refTime = RefTime( m_refTimeSerial, ev.time );
+    const auto refTime = RefTime( m_refTimeSerial, MemRead<int64_t>(&ev.time) );
     auto& memdata = *it->second;
 
     const auto time = TscTime( refTime );
     if( m_data.lastTime < time ) m_data.lastTime = time;
-    NoticeThread( ev.thread );
-    const auto thread = CompressThread( ev.thread );
+    NoticeThread( MemRead<uint32_t>(&ev.thread) );
+    const auto thread = CompressThread( MemRead<uint32_t>(&ev.thread) );
 
     for( auto& v : memdata.active )
     {
@@ -6279,16 +6273,16 @@ void Worker::ProcessMemDiscardCallstack( const QueueMemDiscard& ev )
     m_serialNextCallstack = 0;
 
     assert( m_memNamePayload == 0 );
-    auto it = m_data.memNameMap.find( ev.name );
+    auto it = m_data.memNameMap.find( MemRead<uint64_t>(&ev.name) );
     if( it == m_data.memNameMap.end() ) return;
 
-    const auto refTime = RefTime( m_refTimeSerial, ev.time );
+    const auto refTime = RefTime( m_refTimeSerial, MemRead<int64_t>(&ev.time) );
     auto& memdata = *it->second;
 
     const auto time = TscTime( refTime );
     if( m_data.lastTime < time ) m_data.lastTime = time;
-    NoticeThread( ev.thread );
-    const auto thread = CompressThread( ev.thread );
+    NoticeThread( MemRead<uint32_t>(&ev.thread) );
+    const auto thread = CompressThread( MemRead<uint32_t>(&ev.thread) );
 
     for( auto& v : memdata.active )
     {
@@ -6513,11 +6507,11 @@ void Worker::ProcessCallstackSample( const QueueCallstackSample& ev )
     const auto callstack = m_pendingCallstackId;
     m_pendingCallstackId = 0;
 
-    const auto refTime = RefTime( m_refTimeCtx, ev.time );
+    const auto refTime = RefTime( m_refTimeCtx, MemRead<int64_t>(&ev.time) );
     const auto t = refTime == 0 ? 0 : TscTime( refTime );
     if( m_data.lastTime < t ) m_data.lastTime = t;
 
-    auto& td = *NoticeThread( ev.thread );
+    auto& td = *NoticeThread( MemRead<uint32_t>(&ev.thread) );
 
     SampleData sd;
     sd.time.SetVal( t );
@@ -6558,11 +6552,11 @@ void Worker::ProcessCallstackSampleContextSwitch( const QueueCallstackSample& ev
     const auto callstack = m_pendingCallstackId;
     m_pendingCallstackId = 0;
 
-    const auto refTime = RefTime( m_refTimeCtx, ev.time );
+    const auto refTime = RefTime( m_refTimeCtx, MemRead<int64_t>(&ev.time) );
     const auto t = refTime == 0 ? 0 : TscTime( refTime );
     if( m_data.lastTime < t ) m_data.lastTime = t;
 
-    auto& td = *NoticeThread( ev.thread );
+    auto& td = *NoticeThread( MemRead<uint32_t>(&ev.thread) );
 
     SampleData sd;
     sd.time.SetVal( t );
@@ -6587,7 +6581,7 @@ void Worker::ProcessCallstackFrameSize( const QueueCallstackFrameSize& ev )
     const auto idx = GetSingleStringIdx();
 
     // Frames may be duplicated due to recursion
-    auto fmit = m_data.callstackFrameMap.find( PackPointer( ev.ptr ) );
+    auto fmit = m_data.callstackFrameMap.find( PackPointer( MemRead<uint64_t>(&ev.ptr) ) );
     if( !fmit->second )
     {
         m_callstackFrameStaging = m_slab.Alloc<CallstackFrameData>();
@@ -6595,7 +6589,7 @@ void Worker::ProcessCallstackFrameSize( const QueueCallstackFrameSize& ev )
         m_callstackFrameStaging->data = m_slab.Alloc<CallstackFrame>( ev.size );
         m_callstackFrameStaging->imageName = StringIdx( idx );
 
-        m_callstackFrameStagingPtr = ev.ptr;
+        m_callstackFrameStagingPtr = MemRead<uint64_t>(&ev.ptr);
     }
 }
 
@@ -6635,13 +6629,13 @@ void Worker::ProcessCallstackFrame( const QueueCallstackFrame& ev, bool querySym
         const auto name = StringIdx( nitidx );
         m_callstackFrameStaging->data[idx].name = name;
         m_callstackFrameStaging->data[idx].file = file;
-        m_callstackFrameStaging->data[idx].line = ev.line;
-        m_callstackFrameStaging->data[idx].symAddr = ev.symAddr;
+        m_callstackFrameStaging->data[idx].line = MemRead<uint32_t>(&ev.line);
+        m_callstackFrameStaging->data[idx].symAddr = MemRead<uint64_t>(&ev.symAddr);
 
-        if( querySymbols && ev.symAddr != 0 && m_data.symbolMap.find( ev.symAddr ) == m_data.symbolMap.end() && m_pendingSymbols.find( ev.symAddr ) == m_pendingSymbols.end() )
+        if( querySymbols && MemRead<uint64_t>(&ev.symAddr) != 0 && m_data.symbolMap.find( MemRead<uint64_t>(&ev.symAddr) ) == m_data.symbolMap.end() && m_pendingSymbols.find( MemRead<uint64_t>(&ev.symAddr) ) == m_pendingSymbols.end() )
         {
-            m_pendingSymbols.emplace( ev.symAddr, SymbolPending { name, m_callstackFrameStaging->imageName, file, ev.line, ev.symLen, idx < m_callstackFrameStaging->size - 1 } );
-            Query( ServerQuerySymbol, ev.symAddr );
+            m_pendingSymbols.emplace( MemRead<uint64_t>(&ev.symAddr), SymbolPending { name, m_callstackFrameStaging->imageName, file, MemRead<uint32_t>(&ev.line), MemRead<uint32_t>(&ev.symLen), idx < m_callstackFrameStaging->size - 1 } );
+            Query( ServerQuerySymbol, MemRead<uint64_t>(&ev.symAddr) );
         }
 
         StringRef ref( StringRef::Idx, fitidx );
@@ -6653,12 +6647,12 @@ void Worker::ProcessCallstackFrame( const QueueCallstackFrame& ev, bool querySym
         auto it = m_data.pendingInstructionPointers.find( frameId );
         if( it != m_data.pendingInstructionPointers.end() )
         {
-            if( ev.symAddr != 0 )
+            if( MemRead<uint64_t>(&ev.symAddr) != 0 )
             {
-                auto sit = m_data.instructionPointersMap.find( ev.symAddr );
+                auto sit = m_data.instructionPointersMap.find( MemRead<uint64_t>(&ev.symAddr) );
                 if( sit == m_data.instructionPointersMap.end() )
                 {
-                    m_data.instructionPointersMap.emplace( ev.symAddr, unordered_flat_map<CallstackFrameId, uint32_t, CallstackFrameIdHash, CallstackFrameIdCompare> { { it->first, it->second } } );
+                    m_data.instructionPointersMap.emplace( MemRead<uint64_t>(&ev.symAddr), unordered_flat_map<CallstackFrameId, uint32_t, CallstackFrameIdHash, CallstackFrameIdCompare> { { it->first, it->second } } );
                 }
                 else
                 {
@@ -6671,13 +6665,13 @@ void Worker::ProcessCallstackFrame( const QueueCallstackFrame& ev, bool querySym
         auto pit = m_data.pendingSymbolSamples.find( frameId );
         if( pit != m_data.pendingSymbolSamples.end() )
         {
-            if( ev.symAddr != 0 )
+            if( MemRead<uint64_t>(&ev.symAddr) != 0 )
             {
-                auto sit = m_data.symbolSamples.find( ev.symAddr );
+                auto sit = m_data.symbolSamples.find( MemRead<uint64_t>(&ev.symAddr) );
                 if( sit == m_data.symbolSamples.end() )
                 {
                     pdqsort_branchless( pit->second.begin(), pit->second.end(), [] ( const auto& lhs, const auto& rhs ) { return lhs.time.Val() < rhs.time.Val(); } );
-                    m_data.symbolSamples.emplace( ev.symAddr, std::move( pit->second ) );
+                    m_data.symbolSamples.emplace( MemRead<uint64_t>(&ev.symAddr), std::move( pit->second ) );
                 }
                 else
                 {
@@ -6717,7 +6711,7 @@ void Worker::ProcessCallstackFrame( const QueueCallstackFrame& ev, bool querySym
 
 void Worker::ProcessSymbolInformation( const QueueSymbolInformation& ev )
 {
-    auto it = m_pendingSymbols.find( ev.symAddr );
+    auto it = m_pendingSymbols.find( MemRead<uint64_t>(&ev.symAddr) );
     assert( it != m_pendingSymbols.end() );
 
     const auto idx = GetSingleStringIdx();
@@ -6725,29 +6719,29 @@ void Worker::ProcessSymbolInformation( const QueueSymbolInformation& ev )
     SymbolData sd;
     sd.name = it->second.name;
     sd.file = StringIdx( idx );
-    sd.line = ev.line;
+    sd.line = MemRead<uint32_t>(&ev.line);
     sd.imageName = it->second.imageName;
     sd.callFile = it->second.file;
     sd.callLine = it->second.line;
     sd.isInline = it->second.isInline;
     sd.size.SetVal( it->second.size );
-    m_data.symbolMap.emplace( ev.symAddr, sd );
+    m_data.symbolMap.emplace( MemRead<uint64_t>(&ev.symAddr), sd );
 
     if( m_codeTransfer && it->second.size > 0 && it->second.size <= 128*1024 )
     {
         m_pendingSymbolCode++;
-        Query( ServerQuerySymbolCode, ev.symAddr, it->second.size );
+        Query( ServerQuerySymbolCode, MemRead<uint64_t>(&ev.symAddr), it->second.size );
     }
 
     if( !it->second.isInline )
     {
         if( m_data.newSymbolsIndex < 0 ) m_data.newSymbolsIndex = int64_t( m_data.symbolLoc.size() );
-        m_data.symbolLoc.push_back( SymbolLocation { ev.symAddr, it->second.size } );
+        m_data.symbolLoc.push_back( SymbolLocation { MemRead<uint64_t>(&ev.symAddr), it->second.size } );
     }
     else
     {
         if( m_data.newInlineSymbolsIndex < 0 ) m_data.newInlineSymbolsIndex = int64_t( m_data.symbolLocInline.size() );
-        m_data.symbolLocInline.push_back( ev.symAddr );
+        m_data.symbolLocInline.push_back( MemRead<uint64_t>(&ev.symAddr) );
     }
 
     StringRef ref( StringRef::Idx, idx );
@@ -6759,12 +6753,12 @@ void Worker::ProcessSymbolInformation( const QueueSymbolInformation& ev )
 
 void Worker::ProcessCrashReport( const QueueCrashReport& ev )
 {
-    CheckString( ev.text );
+    CheckString( MemRead<uint64_t>(&ev.text) );
 
     auto td = GetCurrentThreadData();
     m_data.crashEvent.thread = td->id;
-    m_data.crashEvent.time = TscTime( ev.time );
-    m_data.crashEvent.message = ev.text;
+    m_data.crashEvent.time = TscTime( MemRead<int64_t>(&ev.time) );
+    m_data.crashEvent.message = MemRead<uint64_t>(&ev.text);
 
     auto it = m_nextCallstack.find( td->id );
     if( it != m_nextCallstack.end() && it->second != 0 )
@@ -6780,9 +6774,9 @@ void Worker::ProcessCrashReport( const QueueCrashReport& ev )
 
 void Worker::ProcessSysTime( const QueueSysTime& ev )
 {
-    const auto time = TscTime( ev.time );
+    const auto time = TscTime( MemRead<int64_t>(&ev.time) );
     if( m_data.lastTime < time ) m_data.lastTime = time;
-    const auto val = ev.sysTime;
+    const auto val = MemRead<float>(&ev.sysTime);
     if( !m_sysTimePlot )
     {
         m_sysTimePlot = m_slab.AllocInit<PlotData>();
@@ -6811,20 +6805,20 @@ void Worker::ProcessSysTime( const QueueSysTime& ev )
 
 void Worker::ProcessSysPower( const QueueSysPower& ev )
 {
-    const auto time = TscTime( ev.time );
-    auto it = m_powerData.find( ev.name );
+    const auto time = TscTime( MemRead<int64_t>(&ev.time) );
+    auto it = m_powerData.find( MemRead<uint64_t>(&ev.name) );
     if( it == m_powerData.end() )
     {
-        CheckString( ev.name );
+        CheckString( MemRead<uint64_t>(&ev.name) );
         PlotData* plot = m_slab.AllocInit<PlotData>();
-        plot->name = ev.name;
+        plot->name = MemRead<uint64_t>(&ev.name);
         plot->type = PlotType::Power;
         plot->format = PlotValueFormatting::Watt;
         plot->showSteps = false;
         plot->fill = true;
         plot->color = 0;
         m_data.plots.Data().push_back( plot );
-        m_powerData.emplace( ev.name, PowerData { time, plot } );
+        m_powerData.emplace( MemRead<uint64_t>(&ev.name), PowerData { time, plot } );
     }
     else
     {
@@ -6833,7 +6827,7 @@ void Worker::ProcessSysPower( const QueueSysPower& ev )
         if( m_data.lastTime < time ) m_data.lastTime = time;
         // ev.delta is Microjoule, dt is nanoseconds
         // power is Watt = J / s
-        const auto power = ev.delta * 1000. / dt;
+        const auto power = MemRead<uint64_t>(&ev.delta) * 1000. / dt;
         InsertPlot( it->second.plot, time, power );
     }
 }
@@ -6844,14 +6838,14 @@ void Worker::ProcessContextSwitch( const QueueContextSwitch& ev )
     m_data.newContextSwitchesReceived = true;
 #endif
 
-    const auto time = TscTime( RefTime( m_refTimeCtx, ev.time ) );
+    const auto time = TscTime( RefTime( m_refTimeCtx, MemRead<int64_t>(&ev.time) ) );
     if( m_data.lastTime < time ) m_data.lastTime = time;
 
     if( ev.cpu >= m_data.cpuDataCount ) m_data.cpuDataCount = ev.cpu + 1;
     auto& cs = m_data.cpuData[ev.cpu].cs;
-    if( ev.oldThread != 0 )
+    if( MemRead<uint32_t>(&ev.oldThread) != 0 )
     {
-        auto it = m_data.ctxSwitch.find( ev.oldThread );
+        auto it = m_data.ctxSwitch.find( MemRead<uint32_t>(&ev.oldThread) );
         if( it != m_data.ctxSwitch.end() )
         {
             auto& data = it->second->v;
@@ -6869,10 +6863,10 @@ void Worker::ProcessContextSwitch( const QueueContextSwitch& ev )
             const auto dt = time - item.Start();
             it->second->runningTime += dt;
 
-            auto tdit = m_data.cpuThreadData.find( ev.oldThread );
+            auto tdit = m_data.cpuThreadData.find( MemRead<uint32_t>(&ev.oldThread) );
             if( tdit == m_data.cpuThreadData.end() )
             {
-                tdit = m_data.cpuThreadData.emplace( ev.oldThread, CpuThreadData {} ).first;
+                tdit = m_data.cpuThreadData.emplace( MemRead<uint32_t>(&ev.oldThread), CpuThreadData {} ).first;
             }
             tdit->second.runningRegions++;
             tdit->second.runningTime += dt;
@@ -6880,17 +6874,17 @@ void Worker::ProcessContextSwitch( const QueueContextSwitch& ev )
         if( !cs.empty() )
         {
             auto& cx = cs.back();
-            assert( m_data.externalThreadCompress.DecompressThread( cx.Thread() ) == ev.oldThread );
+            assert( m_data.externalThreadCompress.DecompressThread( cx.Thread() ) == MemRead<uint32_t>(&ev.oldThread) );
             cx.SetEnd( time );
         }
     }
-    if( ev.newThread != 0 )
+    if( MemRead<uint32_t>(&ev.newThread) != 0 )
     {
-        auto it = m_data.ctxSwitch.find( ev.newThread );
+        auto it = m_data.ctxSwitch.find( MemRead<uint32_t>(&ev.newThread) );
         if( it == m_data.ctxSwitch.end() )
         {
             auto ctx = m_slab.AllocInit<ContextSwitch>();
-            it = m_data.ctxSwitch.emplace( ev.newThread, ctx ).first;
+            it = m_data.ctxSwitch.emplace( MemRead<uint32_t>(&ev.newThread), ctx ).first;
         }
         auto& data = it->second->v;
         ContextSwitchData* item = nullptr;
@@ -6942,16 +6936,16 @@ void Worker::ProcessContextSwitch( const QueueContextSwitch& ev )
         auto& cx = cs.push_next();
         cx.SetStart( time );
         cx.SetEnd( -1 );
-        cx.SetThread( m_data.externalThreadCompress.CompressThread( ev.newThread ) );
+        cx.SetThread( m_data.externalThreadCompress.CompressThread( MemRead<uint32_t>(&ev.newThread) ) );
 
-        CheckExternalName( ev.newThread );
+        CheckExternalName( MemRead<uint32_t>(&ev.newThread) );
 
         if( migration )
         {
-            auto tdit = m_data.cpuThreadData.find( ev.newThread );
+            auto tdit = m_data.cpuThreadData.find( MemRead<uint32_t>(&ev.newThread) );
             if( tdit == m_data.cpuThreadData.end() )
             {
-                tdit = m_data.cpuThreadData.emplace( ev.newThread, CpuThreadData {} ).first;
+                tdit = m_data.cpuThreadData.emplace( MemRead<uint32_t>(&ev.newThread), CpuThreadData {} ).first;
             }
             tdit->second.migrations++;
         }
@@ -6960,14 +6954,14 @@ void Worker::ProcessContextSwitch( const QueueContextSwitch& ev )
 
 void Worker::ProcessThreadWakeup( const QueueThreadWakeup& ev )
 {
-    const auto time = TscTime( RefTime( m_refTimeCtx, ev.time ) );
+    const auto time = TscTime( RefTime( m_refTimeCtx, MemRead<int64_t>(&ev.time) ) );
     if( m_data.lastTime < time ) m_data.lastTime = time;
 
-    auto it = m_data.ctxSwitch.find( ev.thread );
+    auto it = m_data.ctxSwitch.find( MemRead<uint32_t>(&ev.thread) );
     if( it == m_data.ctxSwitch.end() )
     {
         auto ctx = m_slab.AllocInit<ContextSwitch>();
-        it = m_data.ctxSwitch.emplace( ev.thread, ctx ).first;
+        it = m_data.ctxSwitch.emplace( MemRead<uint32_t>(&ev.thread), ctx ).first;
     }
     auto& data = it->second->v;
     if( !data.empty() && !data.back().IsEndValid() )
@@ -7000,127 +6994,127 @@ void Worker::ProcessThreadWakeup( const QueueThreadWakeup& ev )
 
 void Worker::ProcessTidToPid( const QueueTidToPid& ev )
 {
-    if( m_data.tidToPid.find( ev.tid ) == m_data.tidToPid.end() ) m_data.tidToPid.emplace( ev.tid, ev.pid );
+    if( m_data.tidToPid.find( MemRead<uint64_t>(&ev.tid) ) == m_data.tidToPid.end() ) m_data.tidToPid.emplace( MemRead<uint64_t>(&ev.tid), MemRead<uint64_t>(&ev.pid) );
 }
 
 void Worker::ProcessHwSampleCpuCycle( const QueueHwSample& ev )
 {
-    const auto time = ev.time == 0 ? 0 : TscTime( ev.time );
+    const auto time = MemRead<int64_t>(&ev.time) == 0 ? 0 : TscTime( MemRead<int64_t>(&ev.time) );
     if( m_data.lastTime < time ) m_data.lastTime = time;
-    auto it = m_data.hwSamples.find( ev.ip );
-    if( it == m_data.hwSamples.end() ) it = m_data.hwSamples.emplace( ev.ip, HwSampleData {} ).first;
+    auto it = m_data.hwSamples.find( MemRead<uint64_t>(&ev.ip) );
+    if( it == m_data.hwSamples.end() ) it = m_data.hwSamples.emplace( MemRead<uint64_t>(&ev.ip), HwSampleData {} ).first;
     it->second.cycles.push_back( time );
 }
 
 void Worker::ProcessHwSampleInstructionRetired( const QueueHwSample& ev )
 {
-    const auto time = ev.time == 0 ? 0 : TscTime( ev.time );
+    const auto time = MemRead<int64_t>(&ev.time) == 0 ? 0 : TscTime( MemRead<int64_t>(&ev.time) );
     if( m_data.lastTime < time ) m_data.lastTime = time;
-    auto it = m_data.hwSamples.find( ev.ip );
-    if( it == m_data.hwSamples.end() ) it = m_data.hwSamples.emplace( ev.ip, HwSampleData {} ).first;
+    auto it = m_data.hwSamples.find( MemRead<uint64_t>(&ev.ip) );
+    if( it == m_data.hwSamples.end() ) it = m_data.hwSamples.emplace( MemRead<uint64_t>(&ev.ip), HwSampleData {} ).first;
     it->second.retired.push_back( time );
 }
 
 void Worker::ProcessHwSampleCacheReference( const QueueHwSample& ev )
 {
-    const auto time = ev.time == 0 ? 0 : TscTime( ev.time );
+    const auto time = MemRead<int64_t>(&ev.time) == 0 ? 0 : TscTime( MemRead<int64_t>(&ev.time) );
     if( m_data.lastTime < time ) m_data.lastTime = time;
-    auto it = m_data.hwSamples.find( ev.ip );
-    if( it == m_data.hwSamples.end() ) it = m_data.hwSamples.emplace( ev.ip, HwSampleData {} ).first;
+    auto it = m_data.hwSamples.find( MemRead<uint64_t>(&ev.ip) );
+    if( it == m_data.hwSamples.end() ) it = m_data.hwSamples.emplace( MemRead<uint64_t>(&ev.ip), HwSampleData {} ).first;
     it->second.cacheRef.push_back( time );
 }
 
 void Worker::ProcessHwSampleCacheMiss( const QueueHwSample& ev )
 {
-    const auto time = ev.time == 0 ? 0 : TscTime( ev.time );
+    const auto time = MemRead<int64_t>(&ev.time) == 0 ? 0 : TscTime( MemRead<int64_t>(&ev.time) );
     if( m_data.lastTime < time ) m_data.lastTime = time;
-    auto it = m_data.hwSamples.find( ev.ip );
-    if( it == m_data.hwSamples.end() ) it = m_data.hwSamples.emplace( ev.ip, HwSampleData {} ).first;
+    auto it = m_data.hwSamples.find( MemRead<uint64_t>(&ev.ip) );
+    if( it == m_data.hwSamples.end() ) it = m_data.hwSamples.emplace( MemRead<uint64_t>(&ev.ip), HwSampleData {} ).first;
     it->second.cacheMiss.push_back( time );
 }
 
 void Worker::ProcessHwSampleBranchRetired( const QueueHwSample& ev )
 {
-    const auto time = ev.time == 0 ? 0 : TscTime( ev.time );
+    const auto time = MemRead<int64_t>(&ev.time) == 0 ? 0 : TscTime( MemRead<int64_t>(&ev.time) );
     if( m_data.lastTime < time ) m_data.lastTime = time;
-    auto it = m_data.hwSamples.find( ev.ip );
-    if( it == m_data.hwSamples.end() ) it = m_data.hwSamples.emplace( ev.ip, HwSampleData {} ).first;
+    auto it = m_data.hwSamples.find( MemRead<uint64_t>(&ev.ip) );
+    if( it == m_data.hwSamples.end() ) it = m_data.hwSamples.emplace( MemRead<uint64_t>(&ev.ip), HwSampleData {} ).first;
     it->second.branchRetired.push_back( time );
     m_data.hasBranchRetirement = true;
 }
 
 void Worker::ProcessHwSampleBranchMiss( const QueueHwSample& ev )
 {
-    const auto time = ev.time == 0 ? 0 : TscTime( ev.time );
+    const auto time = MemRead<int64_t>(&ev.time) == 0 ? 0 : TscTime( MemRead<int64_t>(&ev.time) );
     if( m_data.lastTime < time ) m_data.lastTime = time;
-    auto it = m_data.hwSamples.find( ev.ip );
-    if( it == m_data.hwSamples.end() ) it = m_data.hwSamples.emplace( ev.ip, HwSampleData {} ).first;
+    auto it = m_data.hwSamples.find( MemRead<uint64_t>(&ev.ip) );
+    if( it == m_data.hwSamples.end() ) it = m_data.hwSamples.emplace( MemRead<uint64_t>(&ev.ip), HwSampleData {} ).first;
     it->second.branchMiss.push_back( time );
 }
 
 void Worker::ProcessParamSetup( const QueueParamSetup& ev )
 {
-    CheckString( ev.name );
-    m_params.push_back( Parameter { ev.idx, StringRef( StringRef::Ptr, ev.name ), bool( ev.isBool ), ev.val } );
+    CheckString( MemRead<uint64_t>(&ev.name) );
+    m_params.push_back( Parameter { MemRead<uint32_t>(&ev.idx), StringRef( StringRef::Ptr, MemRead<uint64_t>(&ev.name) ), bool( ev.isBool ), MemRead<int32_t>(&ev.val) } );
 }
 
 void Worker::ProcessSourceCodeNotAvailable( const QueueSourceCodeNotAvailable& ev )
 {
-    auto it = m_sourceCodeQuery.find( ev.id );
+    auto it = m_sourceCodeQuery.find( MemRead<uint32_t>(&ev.id) );
     assert( it != m_sourceCodeQuery.end() );
     m_sourceCodeQuery.erase( it );
 }
 
 void Worker::ProcessCpuTopology( const QueueCpuTopology& ev )
 {
-    auto package = m_data.cpuTopology.find( ev.package );
-    if( package == m_data.cpuTopology.end() ) package = m_data.cpuTopology.emplace( ev.package, unordered_flat_map<uint32_t, unordered_flat_map<uint32_t, std::vector<uint32_t>>> {} ).first;
+    auto package = m_data.cpuTopology.find( MemRead<uint32_t>(&ev.package) );
+    if( package == m_data.cpuTopology.end() ) package = m_data.cpuTopology.emplace( MemRead<uint32_t>(&ev.package), unordered_flat_map<uint32_t, unordered_flat_map<uint32_t, std::vector<uint32_t>>> {} ).first;
 
-    auto die = package->second.find( ev.die );
-    if( die == package->second.end() ) die = package->second.emplace( ev.die, unordered_flat_map<uint32_t, std::vector<uint32_t>> {} ).first;
+    auto die = package->second.find( MemRead<uint32_t>(&ev.die) );
+    if( die == package->second.end() ) die = package->second.emplace( MemRead<uint32_t>(&ev.die), unordered_flat_map<uint32_t, std::vector<uint32_t>> {} ).first;
 
-    auto core = die->second.find( ev.core );
-    if( core == die->second.end() ) core = die->second.emplace( ev.core, std::vector<uint32_t> {} ).first;
-    core->second.emplace_back( ev.thread );
+    auto core = die->second.find( MemRead<uint32_t>(&ev.core) );
+    if( core == die->second.end() ) core = die->second.emplace( MemRead<uint32_t>(&ev.core), std::vector<uint32_t> {} ).first;
+    core->second.emplace_back( MemRead<uint32_t>(&ev.thread) );
 
-    assert( m_data.cpuTopologyMap.find( ev.thread ) == m_data.cpuTopologyMap.end() );
-    m_data.cpuTopologyMap.emplace( ev.thread, CpuThreadTopology { ev.package, ev.die, ev.core } );
+    assert( m_data.cpuTopologyMap.find( MemRead<uint32_t>(&ev.thread) ) == m_data.cpuTopologyMap.end() );
+    m_data.cpuTopologyMap.emplace( MemRead<uint32_t>(&ev.thread), CpuThreadTopology { MemRead<uint32_t>(&ev.package), MemRead<uint32_t>(&ev.die), MemRead<uint32_t>(&ev.core) } );
 }
 
 void Worker::ProcessMemNamePayload( const QueueMemNamePayload& ev )
 {
     assert( m_memNamePayload == 0 );
-    m_memNamePayload = ev.name;
+    m_memNamePayload = MemRead<uint64_t>(&ev.name);
 }
 
 void Worker::ProcessThreadGroupHint( const QueueThreadGroupHint& ev )
 {
-    auto td = RetrieveThread( ev.thread );
+    auto td = RetrieveThread( MemRead<uint32_t>(&ev.thread) );
     assert( td );
-    td->groupHint = ev.groupHint;
-    m_pendingThreadHints.emplace_back( ev.thread );
+    td->groupHint = MemRead<int32_t>(&ev.groupHint);
+    m_pendingThreadHints.emplace_back( MemRead<uint32_t>(&ev.thread) );
 }
 
 void Worker::ProcessFiberEnter( const QueueFiberEnter& ev )
 {
-    const auto t = TscTime( RefTime( m_refTimeThread, ev.time ) );
+    const auto t = TscTime( RefTime( m_refTimeThread, MemRead<int64_t>(&ev.time) ) );
     if( m_data.lastTime < t ) m_data.lastTime = t;
 
     uint64_t tid;
-    auto it = m_data.fiberToThreadMap.find( ev.fiber );
+    auto it = m_data.fiberToThreadMap.find( MemRead<uint64_t>(&ev.fiber) );
     if( it == m_data.fiberToThreadMap.end() )
     {
         tid = ( uint64_t(1) << 32 ) | m_data.fiberToThreadMap.size();
-        m_data.fiberToThreadMap.emplace( ev.fiber, tid );
-        NewThread( tid, true, ev.groupHint );
-        CheckFiberName( ev.fiber, tid );
+        m_data.fiberToThreadMap.emplace( MemRead<uint64_t>(&ev.fiber), tid );
+        NewThread( tid, true, MemRead<int32_t>(&ev.groupHint) );
+        CheckFiberName( MemRead<uint64_t>(&ev.fiber), tid );
     }
     else
     {
         tid = it->second;
     }
 
-    auto td = NoticeThread( ev.thread );
+    auto td = NoticeThread( MemRead<uint32_t>(&ev.thread) );
     if( td->fiber )
     {
         auto cit = m_data.ctxSwitch.find( td->fiber->id );
@@ -7148,15 +7142,15 @@ void Worker::ProcessFiberEnter( const QueueFiberEnter& ev )
     item.SetEnd( -1 );
     item.SetReason( ContextSwitchData::Fiber );
     item.SetState( -1 );
-    item.SetThread( CompressThread( ev.thread ) );
+    item.SetThread( CompressThread( MemRead<uint32_t>(&ev.thread) ) );
 }
 
 void Worker::ProcessFiberLeave( const QueueFiberLeave& ev )
 {
-    const auto t = TscTime( RefTime( m_refTimeThread, ev.time ) );
+    const auto t = TscTime( RefTime( m_refTimeThread, MemRead<int64_t>(&ev.time) ) );
     if( m_data.lastTime < t ) m_data.lastTime = t;
 
-    auto td = RetrieveThread( ev.thread );
+    auto td = RetrieveThread( MemRead<uint32_t>(&ev.thread) );
     if( !td->fiber )
     {
         FiberLeaveFailure();
