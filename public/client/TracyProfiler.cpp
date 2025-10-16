@@ -1901,7 +1901,7 @@ void Profiler::Worker()
             {
                 if( m_broadcast )
                 {
-                    broadcastMsg.activeTime = -1;
+					MemWrite(&broadcastMsg.activeTime, -1);
                     m_broadcast->Send( broadcastPort, &broadcastMsg, broadcastLen );
                 }
                 m_shutdownFinished.store( true, std::memory_order_relaxed );
@@ -1932,7 +1932,7 @@ void Profiler::Worker()
 
                     lastBroadcast = t;
                     const auto ts = std::chrono::duration_cast<std::chrono::seconds>( std::chrono::system_clock::now().time_since_epoch() ).count();
-                    broadcastMsg.activeTime = int32_t( ts - m_epoch );
+					MemWrite(&broadcastMsg.activeTime, int32_t( ts - m_epoch ));
                     assert( broadcastMsg.activeTime >= 0 );
                     m_broadcast->Send( broadcastPort, &broadcastMsg, broadcastLen );
                 }
@@ -1942,7 +1942,7 @@ void Profiler::Worker()
         if( m_broadcast )
         {
             lastBroadcast = 0;
-            broadcastMsg.activeTime = -1;
+			MemWrite(&broadcastMsg.activeTime, -1);
             m_broadcast->Send( broadcastPort, &broadcastMsg, broadcastLen );
         }
 

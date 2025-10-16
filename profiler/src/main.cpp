@@ -398,8 +398,7 @@ static void UpdateBroadcastClients()
                 auto msg = broadcastListen->Read( len, addr, 0 );
                 if( !msg ) break;
                 if( len > sizeof( tracy::BroadcastMessage ) ) continue;
-                uint16_t broadcastVersion;
-                memcpy( &broadcastVersion, msg, sizeof( uint16_t ) );
+				uint16_t broadcastVersion = tracy::MemRead<uint16_t>(msg);
                 if( broadcastVersion <= tracy::BroadcastVersion )
                 {
                     uint32_t protoVer;
@@ -414,11 +413,11 @@ static void UpdateBroadcastClients()
                     {
                         tracy::BroadcastMessage bm;
                         memcpy( &bm, msg, len );
-                        protoVer = bm.protocolVersion;
+                        protoVer = tracy::MemRead<uint32_t>(&bm.protocolVersion);
                         strcpy( procname, bm.programName );
-                        activeTime = bm.activeTime;
-                        listenPort = bm.listenPort;
-                        pid = bm.pid;
+                        activeTime = tracy::MemRead<int32_t>(&bm.activeTime);
+                        listenPort = tracy::MemRead<uint16_t>(&bm.listenPort);
+                        pid = tracy::MemRead<uint64_t>(&bm.pid);
                         break;
                     }
                     case 2:
@@ -426,10 +425,10 @@ static void UpdateBroadcastClients()
                         if( len > sizeof( tracy::BroadcastMessage_v2 ) ) continue;
                         tracy::BroadcastMessage_v2 bm;
                         memcpy( &bm, msg, len );
-                        protoVer = bm.protocolVersion;
+                        protoVer = tracy::MemRead<uint32_t>(&bm.protocolVersion);
                         strcpy( procname, bm.programName );
-                        activeTime = bm.activeTime;
-                        listenPort = bm.listenPort;
+                        activeTime = tracy::MemRead<int32_t>(&bm.activeTime);
+                        listenPort = tracy::MemRead<uint16_t>(&bm.listenPort);
                         pid = 0;
                         break;
                     }
@@ -438,10 +437,10 @@ static void UpdateBroadcastClients()
                         if( len > sizeof( tracy::BroadcastMessage_v1 ) ) continue;
                         tracy::BroadcastMessage_v1 bm;
                         memcpy( &bm, msg, len );
-                        protoVer = bm.protocolVersion;
+                        protoVer = tracy::MemRead<uint32_t>(&bm.protocolVersion);
                         strcpy( procname, bm.programName );
-                        activeTime = bm.activeTime;
-                        listenPort = bm.listenPort;
+                        activeTime = tracy::MemRead<int32_t>(&bm.activeTime);
+                        listenPort = tracy::MemRead<uint16_t>(&bm.listenPort);
                         pid = 0;
                         break;
                     }
@@ -450,9 +449,9 @@ static void UpdateBroadcastClients()
                         if( len > sizeof( tracy::BroadcastMessage_v0 ) ) continue;
                         tracy::BroadcastMessage_v0 bm;
                         memcpy( &bm, msg, len );
-                        protoVer = bm.protocolVersion;
+                        protoVer = tracy::MemRead<uint32_t>(&bm.protocolVersion);
                         strcpy( procname, bm.programName );
-                        activeTime = bm.activeTime;
+                        activeTime = tracy::MemRead<int32_t>(&bm.activeTime);
                         listenPort = 8086;
                         pid = 0;
                         break;
