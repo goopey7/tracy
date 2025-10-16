@@ -3287,19 +3287,19 @@ bool Worker::DispatchProcess( const QueueItem& ev, const char*& ptr )
             switch( ev.hdr.type )
             {
             case QueueType::StringData:
-                AddString( ev.stringTransfer.ptr, ptr, sz );
+                AddString( MemRead<uint64_t>(&ev.stringTransfer.ptr), ptr, sz );
                 m_serverQuerySpaceLeft++;
                 break;
             case QueueType::ThreadName:
-                AddThreadString( ev.stringTransfer.ptr, ptr, sz );
+                AddThreadString( MemRead<uint64_t>(&ev.stringTransfer.ptr), ptr, sz );
                 m_serverQuerySpaceLeft++;
                 break;
             case QueueType::FiberName:
-                AddFiberName( ev.stringTransfer.ptr, ptr, sz );
+                AddFiberName( MemRead<uint64_t>(&ev.stringTransfer.ptr), ptr, sz );
                 m_serverQuerySpaceLeft++;
                 break;
             case QueueType::PlotName:
-                HandlePlotName( ev.stringTransfer.ptr, ptr, sz );
+                HandlePlotName( MemRead<uint64_t>(&ev.stringTransfer.ptr), ptr, sz );
                 m_serverQuerySpaceLeft++;
                 break;
             case QueueType::SourceLocationPayload:
@@ -3309,18 +3309,18 @@ bool Worker::DispatchProcess( const QueueItem& ev, const char*& ptr )
                 AddCallstackPayload( ptr, sz );
                 break;
             case QueueType::FrameName:
-                HandleFrameName( ev.stringTransfer.ptr, ptr, sz );
+                HandleFrameName( MemRead<uint64_t>(&ev.stringTransfer.ptr), ptr, sz );
                 m_serverQuerySpaceLeft++;
                 break;
             case QueueType::CallstackAllocPayload:
                 AddCallstackAllocPayload( ptr );
                 break;
             case QueueType::ExternalName:
-                AddExternalName( ev.stringTransfer.ptr, ptr, sz );
+                AddExternalName( MemRead<uint64_t>(&ev.stringTransfer.ptr), ptr, sz );
                 m_serverQuerySpaceLeft++;
                 break;
             case QueueType::ExternalThreadName:
-                AddExternalThreadName( ev.stringTransfer.ptr, ptr, sz );
+                AddExternalThreadName( MemRead<uint64_t>(&ev.stringTransfer.ptr), ptr, sz );
                 break;
             default:
                 assert( false );
