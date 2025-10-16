@@ -3284,7 +3284,7 @@ void Profiler::SendString( uint64_t str, const char* ptr, size_t len, QueueType 
 
     AppendDataUnsafe( &item, QueueDataSize[(int)type] );
     AppendDataUnsafe( &l16, sizeof( l16 ) );
-    AppendDataUnsafe( ptr, l16 );
+    AppendDataUnsafe( ptr, len );
 }
 
 void Profiler::SendSingleString( const char* ptr, size_t len )
@@ -3300,7 +3300,7 @@ void Profiler::SendSingleString( const char* ptr, size_t len )
 
     AppendDataUnsafe( &item, QueueDataSize[(int)QueueType::SingleStringData] );
     AppendDataUnsafe( &l16, sizeof( l16 ) );
-    AppendDataUnsafe( ptr, l16 );
+    AppendDataUnsafe( ptr, len );
 }
 
 void Profiler::SendSecondString( const char* ptr, size_t len )
@@ -3316,7 +3316,7 @@ void Profiler::SendSecondString( const char* ptr, size_t len )
 
     AppendDataUnsafe( &item, QueueDataSize[(int)QueueType::SecondStringData] );
     AppendDataUnsafe( &l16, sizeof( l16 ) );
-    AppendDataUnsafe( ptr, l16 );
+    AppendDataUnsafe( ptr, len );
 }
 
 void Profiler::SendLongString( uint64_t str, const char* ptr, size_t len, QueueType type )
@@ -3338,7 +3338,7 @@ void Profiler::SendLongString( uint64_t str, const char* ptr, size_t len, QueueT
 
     AppendDataUnsafe( &item, QueueDataSize[(int)type] );
     AppendDataUnsafe( &l32, sizeof( l32 ) );
-    AppendDataUnsafe( ptr, l32 );
+    AppendDataUnsafe( ptr, len );
 }
 
 void Profiler::SendSourceLocation( uint64_t ptr )
@@ -3364,17 +3364,17 @@ void Profiler::SendSourceLocationPayload( uint64_t _ptr )
     MemWrite( &item.hdr.type, QueueType::SourceLocationPayload );
     MemWrite( &item.stringTransfer.ptr, _ptr );
 
-    uint16_t len;
+    uint16_t len, len_be;
     memcpy( &len, ptr, sizeof( len ) );
     assert( len > 2 );
-	MemWrite(&len, len);
+	MemWrite(&len_be, len);
     len -= 2;
     ptr += 2;
 
     NeedDataSize( QueueDataSize[(int)QueueType::SourceLocationPayload] + sizeof( len ) + len );
 
     AppendDataUnsafe( &item, QueueDataSize[(int)QueueType::SourceLocationPayload] );
-    AppendDataUnsafe( &len, sizeof( len ) );
+    AppendDataUnsafe( &len_be, sizeof( len_be ) );
     AppendDataUnsafe( ptr, len );
 }
 
@@ -3388,13 +3388,14 @@ void Profiler::SendCallstackPayload( uint64_t _ptr )
 
     const auto sz = *ptr++;
     const auto len = sz * sizeof( uint64_t );
-    uint16_t l16;
-	MemWrite(&l16, uint16_t(len));
+    uint16_t l16 = uint16_t(len);
+	uint16_t l16_be;
+	MemWrite(&l16_be, l16);
 
     NeedDataSize( QueueDataSize[(int)QueueType::CallstackPayload] + sizeof( l16 ) + l16 );
 
     AppendDataUnsafe( &item, QueueDataSize[(int)QueueType::CallstackPayload] );
-    AppendDataUnsafe( &l16, sizeof( l16 ) );
+    AppendDataUnsafe( &l16_be, sizeof( l16_be ) );
 
     if( compile_time_condition<sizeof( uintptr_t ) == sizeof( uint64_t )>::value )
     {
@@ -3420,13 +3421,14 @@ void Profiler::SendCallstackPayload64( uint64_t _ptr )
 
     const auto sz = *ptr++;
     const auto len = sz * sizeof( uint64_t );
-    uint16_t l16;
-	MemWrite(&l16, uint16_t(len));
+    uint16_t l16 = uint16_t(len);
+	uint16_t l16_be;
+	MemWrite(&l16_be, l16);
 
     NeedDataSize( QueueDataSize[(int)QueueType::CallstackPayload] + sizeof( l16 ) + l16 );
 
     AppendDataUnsafe( &item, QueueDataSize[(int)QueueType::CallstackPayload] );
-    AppendDataUnsafe( &l16, sizeof( l16 ) );
+    AppendDataUnsafe( &l16_be, sizeof( l16_be ) );
     AppendDataUnsafe( ptr, sizeof( uint64_t ) * sz );
 }
 
@@ -3438,14 +3440,15 @@ void Profiler::SendCallstackAlloc( uint64_t _ptr )
     MemWrite( &item.hdr.type, QueueType::CallstackAllocPayload );
     MemWrite( &item.stringTransfer.ptr, _ptr );
 
-    uint16_t len;
+    uint16_t len, len_be;
     memcpy( &len, ptr, 2 );
+	MemWrite(&len_be, len);
     ptr += 2;
 
     NeedDataSize( QueueDataSize[(int)QueueType::CallstackAllocPayload] + sizeof( len ) + len );
 
     AppendDataUnsafe( &item, QueueDataSize[(int)QueueType::CallstackAllocPayload] );
-    AppendDataUnsafe( &len, sizeof( len ) );
+    AppendDataUnsafe( &len_be, sizeof( len_be ) );
     AppendDataUnsafe( ptr, len );
 }
 
