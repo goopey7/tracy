@@ -3293,13 +3293,14 @@ void Profiler::SendSingleString( const char* ptr, size_t len )
     MemWrite( &item.hdr.type, QueueType::SingleStringData );
 
     assert( len <= std::numeric_limits<uint16_t>::max() );
-    uint16_t l16;
-	MemWrite(&l16, uint16_t(len));
+    uint16_t l16 = uint16_t(len);
+	uint16_t l16_be;
+	MemWrite(&l16_be, l16);
 
     NeedDataSize( QueueDataSize[(int)QueueType::SingleStringData] + sizeof( l16 ) + l16 );
 
     AppendDataUnsafe( &item, QueueDataSize[(int)QueueType::SingleStringData] );
-    AppendDataUnsafe( &l16, sizeof( l16 ) );
+    AppendDataUnsafe( &l16_be, sizeof( l16_be ) );
     AppendDataUnsafe( ptr, len );
 }
 
@@ -3309,13 +3310,14 @@ void Profiler::SendSecondString( const char* ptr, size_t len )
     MemWrite( &item.hdr.type, QueueType::SecondStringData );
 
     assert( len <= std::numeric_limits<uint16_t>::max() );
-    uint16_t l16;
-	MemWrite(&l16, uint16_t(len));
+    uint16_t l16 = uint16_t(len);
+	uint16_t l16_be;
+	MemWrite(&l16_be, l16);
 
     NeedDataSize( QueueDataSize[(int)QueueType::SecondStringData] + sizeof( l16 ) + l16 );
 
     AppendDataUnsafe( &item, QueueDataSize[(int)QueueType::SecondStringData] );
-    AppendDataUnsafe( &l16, sizeof( l16 ) );
+    AppendDataUnsafe( &l16_be, sizeof( l16_be ) );
     AppendDataUnsafe( ptr, len );
 }
 
@@ -3331,13 +3333,14 @@ void Profiler::SendLongString( uint64_t str, const char* ptr, size_t len, QueueT
 
     assert( len <= std::numeric_limits<uint32_t>::max() );
     assert( QueueDataSize[(int)type] + sizeof( uint32_t ) + len <= TargetFrameSize );
-    uint32_t l32;
-	MemWrite(&l32, uint32_t(len));
+    uint32_t l32 = uint32_t(len);
+	uint32_t l32_be;
+	MemWrite(&l32_be, l32);
 
     NeedDataSize( QueueDataSize[(int)type] + sizeof( l32 ) + l32 );
 
     AppendDataUnsafe( &item, QueueDataSize[(int)type] );
-    AppendDataUnsafe( &l32, sizeof( l32 ) );
+    AppendDataUnsafe( &l32_be, sizeof( l32_be ) );
     AppendDataUnsafe( ptr, len );
 }
 
