@@ -32,6 +32,7 @@
 #include "../public/common/TracyYield.hpp"
 #include "../public/common/TracyStackFrames.hpp"
 #include "../public/common/TracyVersion.hpp"
+#include "../public/common/TracyAlign.hpp"
 #include "TracyFileRead.hpp"
 #include "TracyFileWrite.hpp"
 #include "TracyPrint.hpp"
@@ -2704,6 +2705,7 @@ void Worker::Network()
         auto buf = m_buffer + m_bufferOffset;
         lz4sz_t lz4sz;
         if( !m_sock.Read( &lz4sz, sizeof( lz4sz ), 10, ShouldExit ) ) goto close;
+		lz4sz = MemRead<lz4sz_t>(&lz4sz);
         if( !m_sock.Read( lz4buf.get(), lz4sz, 10, ShouldExit ) ) goto close;
         auto bb = m_bytes.load( std::memory_order_relaxed );
         m_bytes.store( bb + sizeof( lz4sz ) + lz4sz, std::memory_order_relaxed );
@@ -2775,42 +2777,40 @@ void Worker::Exec()
     } );
 
     {
-        WelcomeMessage recv_welcome;
-        if( !m_sock.Read( &recv_welcome, sizeof( recv_welcome ), 10, ShouldExit ) )
+        WelcomeMessage welcome;
+        if( !m_sock.Read( &welcome, sizeof( welcome ), 10, ShouldExit ) )
         {
             m_handshake.store( HandshakeDropped, std::memory_order_relaxed );
             goto close;
         }
-		WelcomeMessage welcome;
-		Deserialize(welcome, reinterpret_cast<const uint8_t*>(&recv_welcome), sizeof(recv_welcome));
-        m_timerMul = welcome.timerMul;
-        m_data.baseTime = welcome.initBegin;
-        const auto initEnd = TscTime( welcome.initEnd );
+        m_timerMul = MemRead<double>(&welcome.timerMul);
+        m_data.baseTime = MemRead<int64_t>(&welcome.initBegin);
+        const auto initEnd = TscTime( MemRead<int64_t>(&welcome.initEnd) );
         m_data.framesBase->frames.push_back( FrameEvent{ 0, -1, -1 } );
         m_data.framesBase->frames.push_back( FrameEvent{ initEnd, -1, -1 } );
         m_data.lastTime = initEnd;
-        m_resolution = TscPeriod( welcome.resolution );
-        m_pid = welcome.pid;
-        m_samplingPeriod = welcome.samplingPeriod;
+        m_resolution = TscPeriod( MemRead<uint64_t>(&welcome.resolution) );
+        m_pid = MemRead<uint64_t>(&welcome.pid);
+        m_samplingPeriod = MemRead<int64_t>(&welcome.samplingPeriod);
         m_onDemand = welcome.flags & WelcomeFlag::OnDemand;
         m_captureProgram = welcome.programName;
-        m_captureTime = welcome.epoch;
-        m_executableTime = welcome.exectime;
+        m_captureTime = MemRead<uint64_t>(&welcome.epoch);
+        m_executableTime = MemRead<uint64_t>(&welcome.exectime);
         m_ignoreMemFreeFaults = ( welcome.flags & WelcomeFlag::OnDemand ) || ( welcome.flags & WelcomeFlag::IsApple );
         m_ignoreFrameEndFaults = welcome.flags & WelcomeFlag::OnDemand;
         m_data.cpuArch = (CpuArchitecture)welcome.cpuArch;
         m_codeTransfer = welcome.flags & WelcomeFlag::CodeTransfer;
         m_combineSamples = welcome.flags & WelcomeFlag::CombineSamples;
         m_identifySamples = welcome.flags & WelcomeFlag::IdentifySamples;
-        m_data.cpuId = welcome.cpuId;
+        m_data.cpuId = MemRead<uint32_t>(&welcome.cpuId);
         memcpy( m_data.cpuManufacturer, welcome.cpuManufacturer, 12 );
         m_data.cpuManufacturer[12] = '\0';
 		printf("[Server] CPU Manufacturer: %s\n", welcome.cpuManufacturer);
-		printf("[Server] TimerMul: %f\n", welcome.timerMul);
-		printf("[Server] PID: %lu\n", welcome.pid);
+		printf("[Server] TimerMul: %f\n", MemRead<double>(&welcome.timerMul));
+		printf("[Server] PID: %lu\n", MemRead<uint64_t>(&welcome.pid));
 
         char dtmp[64];
-        time_t date = welcome.epoch;
+        time_t date = MemRead<uint64_t>(&welcome.epoch);
         auto lt = localtime( &date );
         strftime( dtmp, 64, "%F %T", lt );
         char tmp[1024];

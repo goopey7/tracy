@@ -1,3 +1,4 @@
+#define TRACY_ENABLE
 #ifdef TRACY_ENABLE
 
 #ifdef _WIN32
@@ -1996,9 +1997,7 @@ void Profiler::Worker()
 
         LZ4_resetStream( (LZ4_stream_t*)m_stream );
 		{
-			WelcomeMessage send_welcome;
-			Serialize(welcome, reinterpret_cast<uint8_t*>(&send_welcome), sizeof(send_welcome));
-			m_sock->Send( &send_welcome, sizeof( send_welcome ) );
+			m_sock->Send( &welcome, sizeof( welcome ) );
 		}
 
         m_threadCtx = 0;
