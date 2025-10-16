@@ -3173,7 +3173,7 @@ void Worker::DispatchFailure( const QueueItem& ev, const char*& ptr )
 
 void Worker::Query( ServerQuery type, uint64_t data, uint32_t extra )
 {
-    ServerQueryPacket query { type, data, extra };
+    ServerQueryPacket query;
 	query.type = type;
 	tracy::MemWrite(&query.ptr, data);
 	tracy::MemWrite(&query.extra, extra);
@@ -3194,7 +3194,10 @@ void Worker::Query( ServerQuery type, uint64_t data, uint32_t extra )
 
 void Worker::QueryTerminate()
 {
-    ServerQueryPacket query { ServerQueryTerminate, 0, 0 };
+    ServerQueryPacket query;
+	query.type = ServerQueryTerminate;
+	MemWrite<uint64_t>(&query.ptr, 0);
+	MemWrite<uint32_t>(&query.extra, 0);
     m_sock.Send( &query, ServerQueryPacketSize );
 }
 
@@ -3710,27 +3713,27 @@ void Worker::AddSourceLocation( const QueueSourceLocation& srcloc )
 
     auto it = m_data.sourceLocation.find( ptr );
     assert( it != m_data.sourceLocation.end() );
-    CheckString( srcloc.name );
-    if( CheckString( srcloc.file ) )
+    CheckString( MemRead<uint64_t>(&srcloc.name) );
+    if( CheckString( MemRead<uint64_t>(&srcloc.file) ) )
     {
-        StringRef ref( StringRef::Ptr, srcloc.file );
-        if( srcloc.file != 0 && m_checkedFileStrings.find( ref ) == m_checkedFileStrings.end() && m_pendingFileStrings.find( ref ) == m_pendingFileStrings.end() )
+        StringRef ref( StringRef::Ptr, MemRead<uint64_t>(&srcloc.file) );
+        if( MemRead<uint64_t>(&srcloc.file) != 0 && m_checkedFileStrings.find( ref ) == m_checkedFileStrings.end() && m_pendingFileStrings.find( ref ) == m_pendingFileStrings.end() )
         {
             CacheSource( ref );
         }
     }
     else
     {
-        StringRef ref( StringRef::Ptr, srcloc.file );
+        StringRef ref( StringRef::Ptr, MemRead<uint64_t>(&srcloc.file) );
         assert( m_checkedFileStrings.find( ref ) == m_checkedFileStrings.end() );
         if( m_pendingFileStrings.find( ref ) == m_pendingFileStrings.end() )
         {
             m_pendingFileStrings.emplace( ref );
         }
     }
-    CheckString( srcloc.function );
+    CheckString( MemRead<uint64_t>(&srcloc.function) );
     const uint32_t color = ( srcloc.b << 16 ) | ( srcloc.g << 8 ) | srcloc.r;
-    it->second = SourceLocation {{ srcloc.name == 0 ? StringRef() : StringRef( StringRef::Ptr, srcloc.name ), StringRef( StringRef::Ptr, srcloc.function ), StringRef( StringRef::Ptr, srcloc.file ), srcloc.line, color }};
+    it->second = SourceLocation {{ MemRead<uint64_t>(&srcloc.name) == 0 ? StringRef() : StringRef( StringRef::Ptr, MemRead<uint64_t>(&srcloc.name) ), StringRef( StringRef::Ptr, MemRead<uint64_t>(&srcloc.function) ), StringRef( StringRef::Ptr, MemRead<uint64_t>(&srcloc.file) ), MemRead<uint32_t>(&srcloc.line), color }};
 }
 
 void Worker::AddSourceLocationPayload( const char* data, size_t sz )
@@ -4799,10 +4802,11 @@ bool Worker::Process( const QueueItem& ev )
 void Worker::ProcessThreadContext( const QueueThreadContext& ev )
 {
     m_refTimeThread = 0;
-    if( m_threadCtx != ev.thread )
+	uint32_t thread = MemRead<uint32_t>(&ev.thread);
+    if( m_threadCtx != thread )
     {
-        m_threadCtx = ev.thread;
-        m_threadCtxData = RetrieveThread( ev.thread );
+        m_threadCtx = thread;
+        m_threadCtxData = RetrieveThread(thread);
     }
 }
 

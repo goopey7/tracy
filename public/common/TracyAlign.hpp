@@ -135,37 +135,49 @@ tracy_force_inline double MemRead(const void* ptr)
 template<>
 tracy_force_inline uint16_t MemRead(const void* ptr)
 {
-	return be16toh(*static_cast<const uint16_t*>(ptr));
+	uint16_t tmp;
+    memcpy(&tmp, ptr, sizeof(tmp));
+    return be16toh(tmp);
 }
 
 template<>
 tracy_force_inline uint32_t MemRead(const void* ptr)
 {
-	return be32toh(*static_cast<const uint32_t*>(ptr));
+	uint32_t tmp;
+    memcpy(&tmp, ptr, sizeof(tmp));
+    return be32toh(tmp);
 }
 
 template<>
 tracy_force_inline uint64_t MemRead(const void* ptr)
 {
-	return be64toh(*static_cast<const uint64_t*>(ptr));
+	uint64_t tmp;
+    memcpy(&tmp, ptr, sizeof(tmp));
+    return be64toh(tmp);
 }
 
 template<>
 tracy_force_inline int16_t MemRead(const void* ptr)
 {
-	return static_cast<int16_t>(be16toh(*static_cast<const uint16_t*>(ptr)));
+	uint16_t tmp;
+    memcpy(&tmp, ptr, sizeof(tmp));
+    return static_cast<int16_t>(be16toh(tmp));
 }
 
 template<>
 tracy_force_inline int32_t MemRead(const void* ptr)
 {
-	return static_cast<int32_t>(be32toh(*static_cast<const uint32_t*>(ptr)));
+	uint32_t tmp;
+    memcpy(&tmp, ptr, sizeof(tmp));
+    return static_cast<int32_t>(be32toh(tmp));
 }
 
 template<>
 tracy_force_inline int64_t MemRead(const void* ptr)
 {
-	return static_cast<int64_t>(be64toh(*static_cast<const uint64_t*>(ptr)));
+	uint64_t tmp;
+    memcpy(&tmp, ptr, sizeof(tmp));
+    return static_cast<int64_t>(be64toh(tmp));
 }
 
 }
