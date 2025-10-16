@@ -3176,6 +3176,9 @@ void Worker::DispatchFailure( const QueueItem& ev, const char*& ptr )
 void Worker::Query( ServerQuery type, uint64_t data, uint32_t extra )
 {
     ServerQueryPacket query { type, data, extra };
+	query.type = type;
+	tracy::MemWrite(&query.ptr, data);
+	tracy::MemWrite(&query.extra, extra);
     if( m_serverQuerySpaceLeft > 0 && m_serverQueryQueuePrio.empty() && m_serverQueryQueue.empty() )
     {
         m_serverQuerySpaceLeft--;

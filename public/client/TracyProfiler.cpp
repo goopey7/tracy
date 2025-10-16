@@ -800,10 +800,10 @@ static BroadcastMessage& GetBroadcastMessage( const char* procname, size_t pnsz,
 {
     static BroadcastMessage msg;
 
-    msg.broadcastVersion = BroadcastVersion;
-    msg.protocolVersion = ProtocolVersion;
-    msg.listenPort = port;
-    msg.pid = GetPid();
+	tracy::MemWrite(&msg.broadcastVersion, BroadcastVersion);
+	tracy::MemWrite(&msg.protocolVersion, ProtocolVersion);
+	tracy::MemWrite(&msg.listenPort, port);
+	tracy::MemWrite(&msg.pid, GetPid());
 
     memcpy( msg.programName, procname, pnsz );
     memset( msg.programName + pnsz, 0, WelcomeMessageProgramNameSize - pnsz );
@@ -2007,8 +2007,8 @@ void Profiler::Worker()
 
 #ifdef TRACY_ON_DEMAND
         OnDemandPayloadMessage onDemand;
-        onDemand.frames = m_frameCount.load( std::memory_order_relaxed );
-        onDemand.currentTime = currentTime;
+		MemWrite(&onDemand.frames, m_frameCount.load( std::memory_order_relaxed ));
+		MemWrite(&onDemand.currentTime, currentTime);
 
         m_sock->Send( &onDemand, sizeof( onDemand ) );
 
@@ -3661,9 +3661,9 @@ bool Profiler::HandleServerQuery()
     if( !m_sock->Read( &payload, sizeof( payload ), 10 ) ) return false;
 
     uint8_t type;
-    uint64_t ptr;
     memcpy( &type, &payload.type, sizeof( payload.type ) );
-    memcpy( &ptr, &payload.ptr, sizeof( payload.ptr ) );
+	uint64_t ptr = tracy::MemRead<uint64_t>(&payload.ptr);
+	uint32_t extra = tracy::MemRead<uint32_t>(&payload.extra);
 
     switch( type )
     {
@@ -3725,7 +3725,7 @@ bool Profiler::HandleServerQuery()
         break;
 #ifndef TRACY_NO_CODE_TRANSFER
     case ServerQuerySymbolCode:
-        HandleSymbolCodeQuery( ptr, payload.extra );
+        HandleSymbolCodeQuery( ptr, extra );
         break;
 #endif
     case ServerQuerySourceCode:
@@ -3741,8 +3741,8 @@ bool Profiler::HandleServerQuery()
         AckServerQuery();
         break;
     case ServerQueryDataTransferPart:
-        memcpy( m_queryDataPtr, &ptr, 8 );
-        memcpy( m_queryDataPtr+8, &payload.extra, 4 );
+		MemWrite(m_queryDataPtr, &ptr);
+		MemWrite(m_queryDataPtr + 8, &extra);
         m_queryDataPtr += 12;
         AckServerQuery();
         break;
