@@ -32,11 +32,15 @@
 #  define TRACY_HW_TIMER
 #endif
 
+#ifdef __Wii__
+#include <ogc/lwp_watchdog.h>
+#endif
+
 #ifdef __linux__
 #  include <signal.h>
 #endif
 
-#if defined TRACY_TIMER_FALLBACK || !defined TRACY_HW_TIMER
+#if (defined TRACY_TIMER_FALLBACK || !defined TRACY_HW_TIMER) && !defined __Wii__
 #  include <chrono>
 #endif
 
@@ -245,6 +249,8 @@ public:
         struct timespec ts;
         clock_gettime( CLOCK_MONOTONIC_RAW, &ts );
         return int64_t( ts.tv_sec ) * 1000000000ll + int64_t( ts.tv_nsec );
+# elif __Wii__
+		return ticks_to_nanosecs(gettime());
 #  else
         return std::chrono::duration_cast<std::chrono::nanoseconds>( std::chrono::high_resolution_clock::now().time_since_epoch() ).count();
 #  endif

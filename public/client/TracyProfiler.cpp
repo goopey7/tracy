@@ -802,6 +802,8 @@ static uint64_t GetPid()
 {
 #if defined _WIN32
     return uint64_t( GetCurrentProcessId() );
+#elif __Wii__
+	return 1ull;
 #else
     return uint64_t( getpid() );
 #endif
@@ -1510,8 +1512,8 @@ Profiler::Profiler()
     , m_bufferOffset( 0 )
     , m_bufferStart( 0 )
     , m_lz4Buf( (char*)tracy_malloc( LZ4Size + sizeof( lz4sz_t ) ) )
-    , m_serialQueue( 1024*1024 )
-    , m_serialDequeue( 1024*1024 )
+    , m_serialQueue( 1024 )
+    , m_serialDequeue( 1024 )
 #ifndef TRACY_NO_FRAME_IMAGE
     , m_fiQueue( 16 )
     , m_fiDequeue( 16 )

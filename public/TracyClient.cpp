@@ -26,7 +26,9 @@
 #include "client/TracySysTime.cpp"
 #include "client/TracySysTrace.cpp"
 #include "common/TracySocket.cpp"
-#ifndef __Wii__
+#ifdef __Wii__
+#include "common/TracyAtomicStub.cpp"
+#else
 #include "client/tracy_rpmalloc.cpp"
 #endif
 #include "client/TracyDxt1.cpp"
