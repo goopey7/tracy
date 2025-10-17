@@ -13,6 +13,8 @@ namespace tracy
 
 #ifdef _WIN32
 void InitWinSock();
+#elif defined __Wii__
+bool InitWiiNetwork();
 #endif
 
 class Socket

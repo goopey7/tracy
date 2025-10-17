@@ -2,7 +2,6 @@
 #define __TRACYPROTOCOL_HPP__
 
 #include <cstring>
-#include <endian.h>
 #include <limits>
 #include <stdint.h>
 #include "TracyAlign.hpp"

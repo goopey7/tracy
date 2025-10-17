@@ -24,6 +24,10 @@
 #  ifdef _MSC_VER
 #    pragma comment(lib, "ws2_32.lib")
 #  endif
+#elif defined __Wii__
+#include <network.h>
+#include <ogc/system.h>
+#include <string.h>
 #else
 #  include <arpa/inet.h>
 #  include <sys/socket.h>
@@ -40,6 +44,167 @@
 #  define MSG_NOSIGNAL 0
 #endif
 
+#ifdef __Wii__
+struct addrinfo {
+    int ai_flags;
+    int ai_family;
+    int ai_socktype;
+    int ai_protocol;
+    socklen_t ai_addrlen;
+    struct sockaddr *ai_addr;
+    char *ai_canonname;
+    struct addrinfo *ai_next;
+};
+
+// addrinfo flags (subset of POSIX)
+#define AI_PASSIVE      0x0001
+#define AI_CANONNAME    0x0002
+#define AI_NUMERICHOST  0x0004
+
+// Error codes
+#define EAI_BADFLAGS    -1
+#define EAI_NONAME      -2
+#define EAI_AGAIN       -3
+#define EAI_FAIL        -4
+#define EAI_FAMILY      -6
+#define EAI_SOCKTYPE    -7
+#define EAI_SERVICE     -8
+#define EAI_MEMORY      -10
+#define EAI_SYSTEM      -11
+
+// Wii implementation of getaddrinfo
+static int getaddrinfo(const char *node, const char *service,
+                      const struct addrinfo *hints, struct addrinfo **res)
+{
+	using namespace tracy;
+    struct addrinfo *ai;
+    struct sockaddr_in *sa;
+    int port = 0;
+    
+    // Parse port from service string
+    if( service )
+    {
+        port = atoi(service);
+        if( port <= 0 || port > 65535 )
+            return EAI_SERVICE;
+    }
+    
+    // Allocate addrinfo structure
+    ai = (struct addrinfo*)tracy_malloc(sizeof(struct addrinfo));
+    if( !ai )
+        return EAI_MEMORY;
+    
+    memset(ai, 0, sizeof(struct addrinfo));
+    
+    // Allocate sockaddr_in
+    sa = (struct sockaddr_in*)tracy_malloc(sizeof(struct sockaddr_in));
+    if( !sa )
+    {
+        tracy_free(ai);
+        return EAI_MEMORY;
+    }
+    
+    memset(sa, 0, sizeof(struct sockaddr_in));
+    sa->sin_family = AF_INET;
+    sa->sin_port = htons(port);
+    
+    // Handle node address
+    if( !node )
+    {
+        // NULL node with AI_PASSIVE means INADDR_ANY
+        if( hints && (hints->ai_flags & AI_PASSIVE) )
+            sa->sin_addr.s_addr = INADDR_ANY;
+        else
+            sa->sin_addr.s_addr = htonl(0x7F000001); // 127.0.0.1
+    }
+    else
+    {
+        // Try to parse as IP address first
+        if( inet_aton(node, &sa->sin_addr) )
+        {
+            // Successfully parsed as IP
+        }
+        else if( hints && (hints->ai_flags & AI_NUMERICHOST) )
+        {
+            // Numeric host required but failed to parse
+            tracy_free(sa);
+            tracy_free(ai);
+            return EAI_NONAME;
+        }
+        else
+        {
+            // Try hostname resolution
+            struct hostent *host = net_gethostbyname(node);
+            if( !host || !host->h_addr_list[0] )
+            {
+                tracy_free(sa);
+                tracy_free(ai);
+                return EAI_NONAME;
+            }
+            
+            memcpy(&sa->sin_addr, host->h_addr_list[0], host->h_length);
+            
+            // Store canonical name if requested
+            if( hints && (hints->ai_flags & AI_CANONNAME) && host->h_name )
+            {
+                ai->ai_canonname = (char*)malloc(strlen(host->h_name) + 1);
+                if( ai->ai_canonname )
+                    strcpy(ai->ai_canonname, host->h_name);
+            }
+        }
+    }
+    
+    // Fill in addrinfo fields
+    ai->ai_family = AF_INET;
+    ai->ai_socktype = hints ? hints->ai_socktype : SOCK_STREAM;
+    ai->ai_protocol = hints ? hints->ai_protocol : IPPROTO_TCP;
+    ai->ai_addrlen = sizeof(struct sockaddr_in);
+    ai->ai_addr = (struct sockaddr*)sa;
+    ai->ai_next = NULL;
+    
+    *res = ai;
+    return 0;
+}
+
+// Wii implementation of freeaddrinfo
+static void freeaddrinfo(struct addrinfo *res)
+{
+    struct addrinfo *next;
+    
+    while( res )
+    {
+        next = res->ai_next;
+        
+        if( res->ai_addr )
+            free(res->ai_addr);
+        
+        if( res->ai_canonname )
+            free(res->ai_canonname);
+        
+        free(res);
+        res = next;
+    }
+}
+
+// Wii implementation of gai_strerror
+static const char* gai_strerror(int errcode)
+{
+    switch( errcode )
+    {
+        case EAI_BADFLAGS:   return "Invalid flags";
+        case EAI_NONAME:     return "Name or service not known";
+        case EAI_AGAIN:      return "Temporary failure";
+        case EAI_FAIL:       return "Non-recoverable failure";
+        case EAI_FAMILY:     return "Address family not supported";
+        case EAI_SOCKTYPE:   return "Socket type not supported";
+        case EAI_SERVICE:    return "Service not available";
+        case EAI_MEMORY:     return "Memory allocation failure";
+        case EAI_SYSTEM:     return "System error";
+        default:             return "Unknown error";
+    }
+}
+#endif
+
 namespace tracy
 {
 
@@ -47,6 +212,53 @@ namespace tracy
 typedef SOCKET socket_t;
 #else
 typedef int socket_t;
+#endif
+
+#ifdef __Wii__
+#define socket(d, t, p)       net_socket(d, t, p)
+#define bind(s, a, l)         net_bind(s, a, l)
+#define listen(s, b)          net_listen(s, b)
+#define accept(s, a, l)       net_accept(s, a, l)
+#define connect(s, a, l)      net_connect(s, a, l)
+#define send(s, d, l, f)      net_send(s, d, l, f)
+#define recv(s, d, l, f)      net_recv(s, d, l, f)
+#define close(s)              net_close(s)
+#define setsockopt(s, l, o, v, len) net_setsockopt(s, l, o, v, len)
+#define getsockopt(s, l, o, v, len) net_getsockopt(s, l, o, v, len)
+#define select(n, r, w, e, t) net_select(n, r, w, e, t)
+#define fcntl(s, c, f)        net_fcntl(s, c, f)
+#define poll(s, n, t)         net_poll(s, n, t)
+#define shutdown(s, h)        net_shutdown(s, h)
+#define recvfrom(s, mem, len, flags, from, fromlen) net_recvfrom(s, mem, len, flags, from, fromlen)
+#define sendto(s, data, len, flags, to, tolen) net_sendto(s, data, len, flags, to, tolen)
+
+#define MSG_NOSIGNAL                0
+
+static bool s_wiiNetworkInitialized = false;
+static bool s_wiiNetworkAvailable = false;
+
+bool InitWiiNetwork()
+{
+    if( s_wiiNetworkInitialized ) return s_wiiNetworkAvailable;
+    
+    s_wiiNetworkInitialized = true;
+    
+    char localip[16] = {0};
+    char gateway[16] = {0};
+    char netmask[16] = {0};
+    
+    s32 ret = if_config(localip, netmask, gateway, true, 20);
+    
+    if( ret >= 0 )
+    {
+        s_wiiNetworkAvailable = true;
+        return true;
+    }
+    
+    s_wiiNetworkAvailable = false;
+    return false;
+}
+
 #endif
 
 #ifdef _WIN32
@@ -81,6 +293,8 @@ Socket::Socket()
 {
 #ifdef _WIN32
     InitWinSock();
+#elif defined(__Wii__)
+	InitWiiNetwork();
 #endif
 }
 
@@ -300,6 +514,9 @@ int Socket::GetSendBufSize()
 #if defined _WIN32
     int sz = sizeof( bufSize );
     getsockopt( sock, SOL_SOCKET, SO_SNDBUF, (char*)&bufSize, &sz );
+#elif defined __Wii__
+    socklen_t sz = sizeof( bufSize );
+    getsockopt( sock, SOL_SOCKET, SO_SNDBUF, &bufSize, sz );
 #else
     socklen_t sz = sizeof( bufSize );
     getsockopt( sock, SOL_SOCKET, SO_SNDBUF, &bufSize, &sz );
@@ -342,9 +559,15 @@ int Socket::Recv( void* _buf, int len, int timeout )
     const auto sock = m_sock.load( std::memory_order_relaxed );
     auto buf = (char*)_buf;
 
+#if defined __Wii__
+    struct pollsd fd;
+    fd.socket = (socket_t)sock;
+    fd.events = POLLIN;
+#else
     struct pollfd fd;
     fd.fd = (socket_t)sock;
     fd.events = POLLIN;
+#endif
 
     if( poll( &fd, 1, timeout ) > 0 )
     {
@@ -425,10 +648,15 @@ bool Socket::HasData()
     const auto sock = m_sock.load( std::memory_order_relaxed );
     if( m_bufLeft > 0 ) return true;
 
+#if defined __Wii__
+    struct pollsd fd;
+    fd.socket = (socket_t)sock;
+    fd.events = POLLIN;
+#else
     struct pollfd fd;
     fd.fd = (socket_t)sock;
     fd.events = POLLIN;
-
+#endif
     return poll( &fd, 1, 0 ) > 0;
 }
 
@@ -443,6 +671,8 @@ ListenSocket::ListenSocket()
 {
 #ifdef _WIN32
     InitWinSock();
+#elif defined(__Wii__)
+	InitWiiNetwork();
 #endif
 }
 
@@ -512,12 +742,22 @@ bool ListenSocket::Listen( uint16_t port, int backlog )
 
 Socket* ListenSocket::Accept()
 {
+#if defined __Wii__
+    struct sockaddr_in remote;
+#else
     struct sockaddr_storage remote;
+#endif
     socklen_t sz = sizeof( remote );
 
+#if defined __Wii__
+    struct pollsd fd;
+    fd.socket = (socket_t)m_sock;
+    fd.events = POLLIN;
+#else
     struct pollfd fd;
     fd.fd = (socket_t)m_sock;
     fd.events = POLLIN;
+#endif
 
     if( poll( &fd, 1, 10 ) > 0 )
     {
@@ -555,6 +795,8 @@ UdpBroadcast::UdpBroadcast()
 {
 #ifdef _WIN32
     InitWinSock();
+#elif defined(__Wii__)
+	InitWiiNetwork();
 #endif
 }
 
@@ -589,7 +831,7 @@ bool UdpBroadcast::Open( const char* addr, uint16_t port )
 #if defined _WIN32
         unsigned long broadcast = 1;
         if( setsockopt( sock, SOL_SOCKET, SO_BROADCAST, (const char*)&broadcast, sizeof( broadcast ) ) == -1 )
-#else
+#elif !defined __Wii__
         int broadcast = 1;
         if( setsockopt( sock, SOL_SOCKET, SO_BROADCAST, &broadcast, sizeof( broadcast ) ) == -1 )
 #endif
@@ -607,7 +849,13 @@ bool UdpBroadcast::Open( const char* addr, uint16_t port )
     if( !ptr ) return false;
 
     m_sock = sock;
+#if defined __Wii__
+	struct in_addr tmp;
+    inet_aton(addr, &tmp);
+	m_addr = tmp.s_addr;
+#else
     inet_pton( AF_INET, addr, &m_addr );
+#endif
     return true;
 }
 
@@ -651,7 +899,15 @@ void IpAddress::Set( const struct sockaddr& addr )
 #else
     auto ai = (const struct sockaddr_in*)&addr;
 #endif
+#if defined(__Wii__)
+    const char* txt = inet_ntoa(ai->sin_addr);
+    if (txt)
+        strncpy(m_text, txt, sizeof(m_text));
+    else
+        strcpy(m_text, "0.0.0.0");
+#else
     inet_ntop( AF_INET, &ai->sin_addr, m_text, 17 );
+#endif
     m_number = ai->sin_addr.s_addr;
 }
 
@@ -660,6 +916,8 @@ UdpListen::UdpListen()
 {
 #ifdef _WIN32
     InitWinSock();
+#elif defined(__Wii__)
+	InitWiiNetwork();
 #endif
 }
 
@@ -689,7 +947,7 @@ bool UdpListen::Listen( uint16_t port )
 #if defined _WIN32
     unsigned long broadcast = 1;
     if( setsockopt( sock, SOL_SOCKET, SO_BROADCAST, (const char*)&broadcast, sizeof( broadcast ) ) == -1 )
-#else
+#elif !defined __Wii__
     int broadcast = 1;
     if( setsockopt( sock, SOL_SOCKET, SO_BROADCAST, &broadcast, sizeof( broadcast ) ) == -1 )
 #endif
@@ -736,9 +994,15 @@ const char* UdpListen::Read( size_t& len, IpAddress& addr, int timeout )
 {
     static char buf[2048];
 
+#if defined __Wii__
+    struct pollsd fd;
+    fd.socket = (socket_t)m_sock;
+    fd.events = POLLIN;
+#else
     struct pollfd fd;
     fd.fd = (socket_t)m_sock;
     fd.events = POLLIN;
+#endif
     if( poll( &fd, 1, timeout ) <= 0 ) return nullptr;
 
     sockaddr sa;

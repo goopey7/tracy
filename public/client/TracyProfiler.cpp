@@ -14,6 +14,8 @@
 #  ifndef _MSC_VER
 #    include <excpt.h>
 #  endif
+#  elif defined __Wii__
+#    include <network.h>
 #else
 #  include <arpa/inet.h>
 #  include <sys/time.h>
@@ -138,6 +140,22 @@ extern "C" typedef char* (WINAPI *t_WineGetBuildId)();
 #ifdef __QNX__
 extern char* __progname;
 #endif
+
+#  if defined __Wii__
+// ----- Stub pipe() -----
+#    include <errno.h>
+#    include <ogc/lwp.h>
+#    include <unistd.h>
+
+// Simple stub: returns error, pipe fds invalid
+inline int pipe( int fds[2] )
+{
+    fds[0] = -1;
+    fds[1] = -1;
+    errno = ENOSYS; // Function not implemented
+    return -1;
+}
+#  endif
 
 namespace tracy
 {
@@ -610,6 +628,15 @@ static const char* GetHostInfo()
 #  endif
 
     ptr += sprintf( ptr, "User: %s@%s\n", user, hostname );
+#  elif defined __Wii__
+    InitWiiNetwork();
+    char hostname[64];
+    char ip[16], netmask[16], gateway[16];
+
+    if_config( ip, netmask, gateway, true, 0 );
+
+    // Use the IP address as a pseudo-hostname
+    snprintf( hostname, sizeof( hostname ), "Wii-%s", ip );
 #else
     char hostname[_POSIX_HOST_NAME_MAX]{};
     char user[_POSIX_LOGIN_NAME_MAX]{};
@@ -1542,7 +1569,7 @@ Profiler::Profiler()
 
 #ifndef _WIN32
     pipe(m_pipe);
-#  if defined __APPLE__ || defined BSD
+#  if defined __APPLE__ || defined BSD || defined __Wii__
     // FreeBSD/XNU don't have F_SETPIPE_SZ, so use the default
     m_pipeBufSize = 16384;
 #  else

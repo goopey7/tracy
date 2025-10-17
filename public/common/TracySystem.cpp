@@ -11,6 +11,9 @@
 #  include <windows.h>
 #  include <malloc.h>
 #  include "TracyWinFamily.hpp"
+# elif defined __Wii__
+#include <ogc/lwp.h>
+#include <cstring>
 #else
 #  include <pthread.h>
 #  include <string.h>
@@ -88,6 +91,8 @@ TRACY_API uint32_t GetThreadHandleImpl()
 #elif defined __EMSCRIPTEN__
     // Not supported, but let it compile.
     return 0;
+#elif defined __Wii__
+	return LWP_GetSelf();
 #else
     // To add support for a platform, retrieve and return the kernel thread identifier here.
     //
@@ -166,6 +171,7 @@ TRACY_API void SetThreadNameWithHint( const char* name, int32_t groupHint )
         {
 #if defined __APPLE__
             pthread_setname_np( name );
+#elif defined __Wii__
 #else
             pthread_setname_np( pthread_self(), name );
 #endif
@@ -177,6 +183,7 @@ TRACY_API void SetThreadNameWithHint( const char* name, int32_t groupHint )
             buf[15] = '\0';
 #if defined __APPLE__
             pthread_setname_np( buf );
+#elif defined __Wii__
 #else
             pthread_setname_np( pthread_self(), buf );
 #endif

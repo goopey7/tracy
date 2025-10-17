@@ -5,7 +5,16 @@
 
 #include <cstdint>
 #include <string.h>
+#ifdef __Wii__
+#define htobe16(x) (x)
+#define htobe32(x) (x)
+#define htobe64(x) (x)
+#define be16toh(x) (x)
+#define be32toh(x) (x)
+#define be64toh(x) (x)
+#else
 #include <endian.h>
+#endif
 
 #include "TracyForceInline.hpp"
 
