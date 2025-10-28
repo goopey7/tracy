@@ -3172,7 +3172,7 @@ void Worker::Query( ServerQuery type, uint64_t data, uint32_t extra )
     if( m_serverQuerySpaceLeft > 0 && m_serverQueryQueuePrio.empty() && m_serverQueryQueue.empty() )
     {
         m_serverQuerySpaceLeft--;
-        m_sock.Send( &query, ServerQueryPacketSize );
+        m_sock.Send( query );
     }
     else if( IsQueryPrio( type ) )
     {
@@ -3187,7 +3187,7 @@ void Worker::Query( ServerQuery type, uint64_t data, uint32_t extra )
 void Worker::QueryTerminate()
 {
     ServerQueryPacket query { ServerQueryTerminate, 0, 0 };
-    m_sock.Send( &query, ServerQueryPacketSize );
+    m_sock.Send( query );
 }
 
 void Worker::QuerySourceFile( const char* fn, const char* image )

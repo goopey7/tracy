@@ -3653,7 +3653,7 @@ void Profiler::SymbolWorker()
 bool Profiler::HandleServerQuery()
 {
     ServerQueryPacket payload;
-    if( !m_sock->Read( &payload, sizeof( payload ), 10 ) ) return false;
+    if( !m_sock->Read( payload, 10 ) ) return false;
 
     uint8_t type;
     uint64_t ptr;

@@ -64,6 +64,12 @@ struct ServerQueryPacket
     ServerQuery type;
     uint64_t ptr;
     uint32_t extra;
+
+	void convert_endian()
+	{
+		ptr = ::convert_endian(ptr);
+		extra = ::convert_endian(extra);
+	}
 };
 
 enum { ServerQueryPacketSize = sizeof( ServerQueryPacket ) };
