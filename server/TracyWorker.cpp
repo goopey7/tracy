@@ -2743,7 +2743,7 @@ void Worker::Exec()
 
     m_sock.Send( HandshakeShibboleth, HandshakeShibbolethSize );
     uint32_t protocolVersion = ProtocolVersion;
-    m_sock.Send( &protocolVersion, sizeof( protocolVersion ) );
+    m_sock.Send( protocolVersion );
     HandshakeStatus handshake;
     if( !m_sock.Read( &handshake, sizeof( handshake ), 10, ShouldExit ) )
     {

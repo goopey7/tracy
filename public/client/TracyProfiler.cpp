@@ -1958,6 +1958,7 @@ void Profiler::Worker()
 
             uint32_t protocolVersion;
             res = m_sock->ReadRaw( &protocolVersion, sizeof( protocolVersion ), 2000 );
+            protocolVersion = convert_endian( protocolVersion );
             if( !res )
             {
                 m_sock->~Socket();
