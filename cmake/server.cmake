@@ -33,3 +33,7 @@ target_link_libraries(TracyServer PUBLIC TracyCapstone libzstd PPQSort::PPQSort)
 if(NO_STATISTICS)
     target_compile_definitions(TracyServer PUBLIC TRACY_NO_STATISTICS)
 endif()
+
+if(TRACY_BIGENDIAN)
+	target_compile_definitions(TracyServer PUBLIC TRACY_BIGENDIAN)
+endif()
