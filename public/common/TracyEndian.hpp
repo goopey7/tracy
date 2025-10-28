@@ -1,3 +1,5 @@
+#pragma once
+
 #include <bit>
 #include <concepts>
 #include <cstdint>
@@ -22,7 +24,7 @@ concept FloatingPoint = std::is_floating_point_v<T>;
 
 // trival to copy struct with no padding
 template<typename T>
-concept TrivialStruct = std::is_class_v<T> && std::is_trivially_copyable_v<T> && std::has_unique_object_representations_v<T>;
+concept TrivialStruct = requires( T val ) {{val.convert_endian()}; } || ( std::is_class_v<T> && std::is_trivially_copyable_v<T> && std::has_unique_object_representations_v<T> );
 
 template<typename T>
 concept NetworkSerializable = TrivialInteger<T> || std::is_enum_v<T> || FloatingPoint<T> || TrivialStruct<T>;

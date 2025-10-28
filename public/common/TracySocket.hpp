@@ -54,7 +54,8 @@ public:
     template<TrivialStruct T>
     int Send( const T& value )
     {
-        auto network_val = convert_endian( value );
+        auto network_val = value;
+        convert_endian( network_val );
         return Send( &network_val, sizeof( network_val ) );
     }
 
@@ -73,6 +74,70 @@ public:
             if( !ReadImpl( cbuf, len, timeout ) ) return false;
         }
         return true;
+    }
+
+    template<TrivialInteger T, typename ShouldExit>
+    bool Read( T& value, int timeout, ShouldExit exitCb )
+    {
+        int len = sizeof( value );
+        T network_val;
+        char* cBuf = (char*)&network_val;
+        while( len > 0 )
+        {
+            if( exitCb() ) return false;
+            if( !ReadImpl( cBuf, len, timeout ) ) return false;
+        }
+        value = convert_endian( network_val );
+        return true;
+    }
+
+    template<typename T, typename ShouldExit>
+        requires std::is_enum_v<T>
+    bool Read( T& value, int timeout, ShouldExit exitCb )
+    {
+        std::underlying_type_t<T> network_val;
+        if( !Read( &network_val, sizeof( network_val ), timeout, exitCb ) )
+        {
+            return false;
+        }
+        value = static_cast<T>( convert_endian( network_val ) );
+        return true;
+    }
+
+    template<FloatingPoint T, typename ShouldExit>
+    bool Read( T& value, int timeout, ShouldExit exitCb )
+    {
+        int len = sizeof( value );
+        T network_val;
+        char* cBuf = (char*)&network_val;
+        while( len > 0 )
+        {
+            if( exitCb() ) return false;
+            if( !ReadImpl( cBuf, len, timeout ) ) return false;
+        }
+        value = convert_endian( network_val );
+        return true;
+    }
+
+    template<TrivialStruct T, typename ShouldExit>
+    bool Read( T& value, int timeout, ShouldExit exitCb )
+    {
+        if constexpr( std::endian::native == network_byteorder() )
+        {
+            return Read( &value, sizeof( value ), timeout );
+        }
+        else
+        {
+            int len = sizeof( value );
+            char* cBuf = (char*)&value;
+            while( len > 0 )
+            {
+                if( exitCb() ) return false;
+                if( !ReadImpl( cBuf, len, timeout ) ) return false;
+            }
+            convert_endian( value );
+            return true;
+        }
     }
 
     bool ReadRaw( void* buf, int len, int timeout );

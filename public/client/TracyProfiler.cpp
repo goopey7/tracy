@@ -1992,7 +1992,7 @@ void Profiler::Worker()
         m_sock->Send( &handshake, sizeof( handshake ) );
 
         LZ4_resetStream( (LZ4_stream_t*)m_stream );
-        m_sock->Send( &welcome, sizeof( welcome ) );
+        m_sock->Send( welcome );
 
         m_threadCtx = 0;
         m_refTimeSerial = 0;

@@ -1,6 +1,7 @@
 #ifndef __TRACYPROTOCOL_HPP__
 #define __TRACYPROTOCOL_HPP__
 
+#include "TracyEndian.hpp"
 #include <limits>
 #include <stdint.h>
 
@@ -106,6 +107,21 @@ struct WelcomeMessage
     uint32_t cpuId;
     char programName[WelcomeMessageProgramNameSize];
     char hostInfo[WelcomeMessageHostInfoSize];
+
+    void convert_endian()
+    {
+        timerMul = ::convert_endian( timerMul );
+        initBegin = ::convert_endian( initBegin );
+        initEnd = ::convert_endian( initEnd );
+        resolution = ::convert_endian( resolution );
+        epoch = ::convert_endian( epoch );
+        exectime = ::convert_endian( exectime );
+        pid = ::convert_endian( pid );
+        samplingPeriod = ::convert_endian( samplingPeriod );
+        flags = ::convert_endian( flags );
+        cpuArch = ::convert_endian( cpuArch );
+        cpuId = ::convert_endian( cpuId );
+    }
 };
 
 enum { WelcomeMessageSize = sizeof( WelcomeMessage ) };
