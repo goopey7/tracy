@@ -2815,7 +2815,7 @@ void Worker::Exec()
         if( m_onDemand )
         {
             OnDemandPayloadMessage onDemand;
-            if( !m_sock.Read( &onDemand, sizeof( onDemand ), 10, ShouldExit ) )
+            if( !m_sock.Read( onDemand, 10, ShouldExit ) )
             {
                 m_handshake.store( HandshakeDropped, std::memory_order_relaxed );
                 goto close;

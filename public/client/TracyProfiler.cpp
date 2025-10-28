@@ -2004,7 +2004,7 @@ void Profiler::Worker()
         onDemand.frames = m_frameCount.load( std::memory_order_relaxed );
         onDemand.currentTime = currentTime;
 
-        m_sock->Send( &onDemand, sizeof( onDemand ) );
+        m_sock->Send( onDemand );
 
         m_deferredLock.lock();
         for( auto& item : m_deferredQueue )
