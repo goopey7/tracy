@@ -254,6 +254,36 @@ public:
 
     int Send( uint16_t port, const void* data, int len );
 
+    template<TrivialInteger T>
+    int Send( uint16_t port, T value )
+    {
+        auto network_val = convert_endian( value );
+        return Send( port, &network_val, sizeof( network_val ) );
+    }
+
+    template<typename T>
+        requires std::is_enum_v<T>
+    int Send( uint16_t port, T value )
+    {
+        auto network_val = convert_endian( value );
+        return Send( port, &network_val, sizeof( network_val ) );
+    }
+
+    template<FloatingPoint T>
+    int Send( uint16_t port, T value )
+    {
+        auto network_val = convert_endian( value );
+        return Send( port, &network_val, sizeof( network_val ) );
+    }
+
+    template<TrivialStruct T>
+    int Send( const uint16_t port, T& value )
+    {
+        auto network_val = value;
+        convert_endian( network_val );
+        return Send( port, &network_val, sizeof( network_val ) );
+    }
+
     UdpBroadcast( const UdpBroadcast& ) = delete;
     UdpBroadcast( UdpBroadcast&& ) = delete;
     UdpBroadcast& operator=( const UdpBroadcast& ) = delete;

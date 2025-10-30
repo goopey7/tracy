@@ -141,15 +141,30 @@ struct OnDemandPayloadMessage
 
 enum { OnDemandPayloadMessageSize = sizeof( OnDemandPayloadMessage ) };
 
+enum class NetworkByteOrder : uint8_t
+{
+    BigEndian,
+    LittleEndian
+};
 
 struct BroadcastMessage
 {
+    NetworkByteOrder byteOrder;
     uint16_t broadcastVersion;
     uint16_t listenPort;
     uint32_t protocolVersion;
     uint64_t pid;
     int32_t activeTime;        // in seconds
     char programName[WelcomeMessageProgramNameSize];
+
+    void convert_endian()
+    {
+        ::convert_endian( broadcastVersion );
+        ::convert_endian( listenPort );
+        ::convert_endian( protocolVersion );
+        ::convert_endian( pid );
+        ::convert_endian( activeTime );
+    }
 };
 
 struct BroadcastMessage_v2

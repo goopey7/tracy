@@ -69,6 +69,7 @@
 
 #include "../common/TracyAlign.hpp"
 #include "../common/TracyAlloc.hpp"
+#include "../common/TracyEndian.hpp"
 #include "../common/TracySocket.hpp"
 #include "../common/TracySystem.hpp"
 #include "../common/TracyYield.hpp"
@@ -798,6 +799,14 @@ static BroadcastMessage& GetBroadcastMessage( const char* procname, size_t pnsz,
 {
     static BroadcastMessage msg;
 
+    if constexpr( network_byteorder() == std::endian::big )
+    {
+        msg.byteOrder = NetworkByteOrder::BigEndian;
+    }
+    else
+    {
+        msg.byteOrder = NetworkByteOrder::LittleEndian;
+    }
     msg.broadcastVersion = BroadcastVersion;
     msg.protocolVersion = ProtocolVersion;
     msg.listenPort = port;
@@ -1900,7 +1909,7 @@ void Profiler::Worker()
                 if( m_broadcast )
                 {
                     broadcastMsg.activeTime = -1;
-                    m_broadcast->Send( broadcastPort, &broadcastMsg, broadcastLen );
+                    m_broadcast->Send( broadcastPort, broadcastMsg );
                 }
                 m_shutdownFinished.store( true, std::memory_order_relaxed );
                 return;
@@ -1932,7 +1941,7 @@ void Profiler::Worker()
                     const auto ts = std::chrono::duration_cast<std::chrono::seconds>( std::chrono::system_clock::now().time_since_epoch() ).count();
                     broadcastMsg.activeTime = int32_t( ts - m_epoch );
                     assert( broadcastMsg.activeTime >= 0 );
-                    m_broadcast->Send( broadcastPort, &broadcastMsg, broadcastLen );
+                    m_broadcast->Send( broadcastPort, broadcastMsg );
                 }
             }
         }
@@ -1941,7 +1950,7 @@ void Profiler::Worker()
         {
             lastBroadcast = 0;
             broadcastMsg.activeTime = -1;
-            m_broadcast->Send( broadcastPort, &broadcastMsg, broadcastLen );
+            m_broadcast->Send( broadcastPort, broadcastMsg );
         }
 
         // Handshake
