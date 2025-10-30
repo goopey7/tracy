@@ -91,7 +91,7 @@ static void convert_endian( T& value )
 {
     if constexpr( std::endian::native == network_byteorder() )
     {
-        return value;
+        return;
     }
     else
     {
