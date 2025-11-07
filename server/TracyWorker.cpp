@@ -3072,8 +3072,10 @@ void Worker::HandleFailure( const char* ptr, const char* end )
     }
 }
 
-void Worker::DispatchFailure( const QueueItem& ev, const char*& ptr )
+void Worker::DispatchFailure( const QueueItem& evIn, const char*& ptr )
 {
+	QueueItem ev = evIn;
+	ev.convert_endian();
     if( ev.hdr.idx >= (int)QueueType::StringData )
     {
         ptr += sizeof( QueueHeader ) + sizeof( QueueStringTransfer );
@@ -3242,8 +3244,10 @@ void Worker::QueryCallstackFrame( uint64_t addr )
     Query( ServerQueryCallstackFrame, addr );
 }
 
-bool Worker::DispatchProcess( const QueueItem& ev, const char*& ptr )
+bool Worker::DispatchProcess( const QueueItem& evIn, const char*& ptr )
 {
+	QueueItem ev = evIn;
+	ev.convert_endian();
     if( ev.hdr.idx >= (int)QueueType::StringData )
     {
         ptr += sizeof( QueueHeader ) + sizeof( QueueStringTransfer );
@@ -4479,8 +4483,10 @@ StringLocation Worker::StoreString( const char* str, size_t sz )
     return ret;
 }
 
-bool Worker::Process( const QueueItem& ev )
+bool Worker::Process( const QueueItem& evIn )
 {
+	QueueItem ev = evIn;
+	ev.convert_endian();
     switch( ev.hdr.type )
     {
     case QueueType::ThreadContext:
