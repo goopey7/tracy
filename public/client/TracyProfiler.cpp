@@ -3405,14 +3405,19 @@ void Profiler::SendCallstackPayload( uint64_t _ptr )
 
     if( compile_time_condition<sizeof( uintptr_t ) == sizeof( uint64_t )>::value )
     {
-        AppendDataUnsafe( ptr, sizeof( uint64_t ) * sz );
+		for( uintptr_t i=0; i<sz; i++ )
+		{
+			auto val_net = convert_endian( ptr[i] );
+			AppendDataUnsafe( &val_net, sizeof( uint64_t ) );
+		}
     }
     else
     {
         for( uintptr_t i=0; i<sz; i++ )
         {
             const auto val = uint64_t( *ptr++ );
-            AppendDataUnsafe( &val, sizeof( uint64_t ) );
+			const auto val_net = convert_endian(val);
+            AppendDataUnsafe( &val_net, sizeof( uint64_t ) );
         }
     }
 }
@@ -3435,7 +3440,11 @@ void Profiler::SendCallstackPayload64( uint64_t _ptr )
 	item.convert_endian();
     AppendDataUnsafe( &item, QueueDataSize[(int)QueueType::CallstackPayload] );
     AppendDataUnsafe( &l16_net, sizeof( l16_net ) );
-    AppendDataUnsafe( ptr, sizeof( uint64_t ) * sz );
+	for( uint64_t i=0; i<sz; i++ )
+	{
+		auto val_net = convert_endian( ptr[i] );
+		AppendDataUnsafe( &val_net, sizeof( uint64_t ) );
+	}
 }
 
 void Profiler::SendCallstackAlloc( uint64_t _ptr )
