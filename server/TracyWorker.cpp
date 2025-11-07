@@ -4497,10 +4497,8 @@ StringLocation Worker::StoreString( const char* str, size_t sz )
     return ret;
 }
 
-bool Worker::Process( const QueueItem& evIn )
+bool Worker::Process( const QueueItem& ev )
 {
-	QueueItem ev = evIn;
-	ev.convert_endian();
     switch( ev.hdr.type )
     {
     case QueueType::ThreadContext:
