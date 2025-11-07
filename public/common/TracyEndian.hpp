@@ -29,6 +29,16 @@ concept TrivialStruct = requires( T val ) {{val.convert_endian()}; } || ( std::i
 template<typename T>
 concept NetworkSerializable = TrivialInteger<T> || std::is_enum_v<T> || FloatingPoint<T> || TrivialStruct<T>;
 
+template<std::size_t N>
+constexpr void convert_endian(char (&value)[N]) noexcept
+{
+    if constexpr (std::endian::native != network_byteorder())
+    {
+        for (std::size_t i = 0; i < N / 2; ++i)
+            std::swap(value[i], value[N - 1 - i]);
+    }
+}
+
 template<TrivialInteger T>
 constexpr T convert_endian( T value ) noexcept
 {
@@ -54,7 +64,7 @@ template<typename T>
     requires std::is_enum_v<T>
 constexpr auto convert_endian( T value ) noexcept
 {
-    return convert_endian( static_cast<std::underlying_type_t<T>>( value ) );
+    return static_cast<T>( convert_endian( static_cast<std::underlying_type_t<T>>( value ) ) );
 }
 
 template<FloatingPoint T>

@@ -1,8 +1,10 @@
 #ifndef __TRACYQUEUE_HPP__
 #define __TRACYQUEUE_HPP__
 
+#include <cassert>
 #include <stddef.h>
 #include <stdint.h>
+#include "TracyEndian.hpp"
 
 namespace tracy
 {
@@ -817,6 +819,408 @@ struct QueueItem
         QueueFiberLeave fiberLeave;
         QueueGpuZoneAnnotation zoneAnnotation;
     };
+
+	void convert_endian()
+	{
+		switch (hdr.type)
+		{
+			case QueueType::ThreadContext:
+				threadCtx.thread = ::convert_endian(threadCtx.thread);
+				break;
+			case QueueType::ZoneBegin:
+			case QueueType::ZoneBeginCallstack:
+			case QueueType::ZoneBeginAllocSrcLoc:
+			case QueueType::ZoneBeginAllocSrcLocCallstack:
+				zoneBegin.time = ::convert_endian(zoneBegin.time);
+				zoneBegin.srcloc = ::convert_endian(zoneBegin.srcloc);
+				zoneBeginThread.thread = ::convert_endian(zoneBeginThread.thread);
+				break;
+			case QueueType::ZoneEnd:
+				zoneEnd.time = ::convert_endian(zoneEnd.time);
+				zoneEndThread.thread = ::convert_endian(zoneEndThread.thread);
+				break;
+			case QueueType::ZoneValidation:
+				zoneValidation.id = ::convert_endian(zoneValidation.id);
+				zoneValidationThread.thread = ::convert_endian(zoneValidationThread.thread);
+				break;
+			case QueueType::ZoneColor:
+				zoneColor.b = ::convert_endian(zoneColor.b);
+				zoneColor.g = ::convert_endian(zoneColor.g);
+				zoneColor.r = ::convert_endian(zoneColor.r);
+				zoneColorThread.thread = ::convert_endian(zoneColorThread.thread);
+				break;
+			case QueueType::ZoneValue:
+				zoneValue.value = ::convert_endian(zoneValue.value);
+				zoneValueThread.thread = ::convert_endian(zoneValueThread.thread);
+				break;
+			case QueueType::StringData:
+			case QueueType::ThreadName:
+			case QueueType::PlotName:
+			case QueueType::FrameName:
+			case QueueType::ExternalName:
+			case QueueType::ExternalThreadName:
+			case QueueType::FiberName:
+			case QueueType::FrameImageData:
+			case QueueType::SymbolCode:
+			case QueueType::SourceCode:
+			case QueueType::SourceLocationPayload:
+			case QueueType::CallstackPayload:
+			case QueueType::CallstackAllocPayload:
+				stringTransfer.ptr = ::convert_endian(stringTransfer.ptr);
+				break;
+			case QueueType::FrameMarkMsgStart:
+			case QueueType::FrameMarkMsgEnd:
+			case QueueType::FrameMarkMsg:
+				frameMark.name = ::convert_endian(frameMark.name);
+				frameMark.time = ::convert_endian(frameMark.time);
+				break;
+			case QueueType::FrameVsync:
+				frameVsync.id = ::convert_endian(frameVsync.id);
+				frameVsync.time = ::convert_endian(frameVsync.time);
+				break;
+			case QueueType::FrameImage:
+				frameImage.frame = ::convert_endian(frameImage.frame);
+				frameImage.w = ::convert_endian(frameImage.w);
+				frameImage.h = ::convert_endian(frameImage.h);
+				frameImage.flip = ::convert_endian(frameImage.flip);
+				frameImageFat.image = ::convert_endian(frameImageFat.image);
+				break;
+			case QueueType::SourceLocation:
+				srcloc.name = ::convert_endian(srcloc.name);
+				srcloc.file = ::convert_endian(srcloc.file);
+				srcloc.function = ::convert_endian(srcloc.function);
+				srcloc.line = ::convert_endian(srcloc.line);
+				srcloc.b = ::convert_endian(srcloc.b);
+				srcloc.g = ::convert_endian(srcloc.g);
+				srcloc.r = ::convert_endian(srcloc.r);
+				break;
+			case QueueType::ZoneName:
+			case QueueType::ZoneText:
+				zoneTextFat.text = ::convert_endian(zoneTextFat.text);
+				zoneTextFat.size = ::convert_endian(zoneTextFat.size);
+				zoneTextFatThread.thread = ::convert_endian(zoneTextFatThread.thread);
+				break;
+			case QueueType::LockAnnounce:
+				lockAnnounce.type = ::convert_endian(lockAnnounce.type);
+				lockAnnounce.id = ::convert_endian(lockAnnounce.id);
+				lockAnnounce.lckloc = ::convert_endian(lockAnnounce.lckloc);
+				lockAnnounce.time = ::convert_endian(lockAnnounce.time);
+				break;
+			case QueueType::LockTerminate:
+				lockTerminate.id = ::convert_endian(lockTerminate.id);
+				lockTerminate.time = ::convert_endian(lockTerminate.time);
+				break;
+			case QueueType::LockWait:
+			case QueueType::LockSharedWait:
+				lockWait.id = ::convert_endian(lockWait.id);
+				lockWait.thread = ::convert_endian(lockWait.thread);
+				lockWait.time = ::convert_endian(lockWait.time);
+				break;
+			case QueueType::LockObtain:
+			case QueueType::LockSharedObtain:
+				lockObtain.id = ::convert_endian(lockObtain.id);
+				lockObtain.thread = ::convert_endian(lockObtain.thread);
+				lockObtain.time = ::convert_endian(lockObtain.time);
+				break;
+			case QueueType::LockRelease:
+				lockRelease.id = ::convert_endian(lockRelease.id);
+				lockRelease.time = ::convert_endian(lockRelease.time);
+				break;
+			case QueueType::LockSharedRelease:
+				lockReleaseShared.id = ::convert_endian(lockReleaseShared.id);
+				lockReleaseShared.time = ::convert_endian(lockReleaseShared.time);
+				lockReleaseShared.thread = ::convert_endian(lockReleaseShared.thread);
+				break;
+			case QueueType::LockMark:
+				lockMark.id = ::convert_endian(lockMark.id);
+				lockMark.srcloc = ::convert_endian(lockMark.srcloc);
+				lockMark.thread = ::convert_endian(lockMark.thread);
+				break;
+			case QueueType::LockName:
+				lockNameFat.name = ::convert_endian(lockNameFat.name);
+				lockNameFat.id = ::convert_endian(lockNameFat.id);
+				lockNameFat.size = ::convert_endian(lockNameFat.size);
+				break;
+			case QueueType::PlotDataInt:
+				plotDataInt.name = ::convert_endian(plotDataInt.name);
+				plotDataInt.time = ::convert_endian(plotDataInt.time);
+				plotDataInt.val = ::convert_endian(plotDataInt.val);
+				break;
+			case QueueType::PlotDataDouble:
+				plotDataDouble.name = ::convert_endian(plotDataDouble.name);
+				plotDataDouble.time = ::convert_endian(plotDataDouble.time);
+				plotDataDouble.val = ::convert_endian(plotDataDouble.val);
+				break;
+			case QueueType::PlotDataFloat:
+				plotDataFloat.name = ::convert_endian(plotDataFloat.name);
+				plotDataFloat.time = ::convert_endian(plotDataFloat.time);
+				plotDataFloat.val = ::convert_endian(plotDataFloat.val);
+				break;
+			case QueueType::Message:
+			case QueueType::MessageAppInfo:
+			case QueueType::MessageCallstack:
+				messageFat.time = ::convert_endian(messageFat.time);
+				messageFat.size = ::convert_endian(messageFat.size);
+				messageFat.text = ::convert_endian(messageFat.text);
+				messageFatThread.thread = ::convert_endian(messageFatThread.thread);
+				break;
+			case QueueType::MessageColor:
+			case QueueType::MessageColorCallstack:
+				messageColorFat.b = ::convert_endian(messageColorFat.b);
+				messageColorFat.g = ::convert_endian(messageColorFat.g);
+				messageColorFat.r = ::convert_endian(messageColorFat.r);
+				messageColorFat.time = ::convert_endian(messageColorFat.time);
+				messageColorFat.size = ::convert_endian(messageColorFat.size);
+				messageColorFat.text = ::convert_endian(messageColorFat.text);
+				messageColorFatThread.thread = ::convert_endian(messageColorFatThread.thread);
+				break;
+			case QueueType::MessageLiteral:
+			case QueueType::MessageLiteralCallstack:
+				messageLiteral.time = ::convert_endian(messageLiteral.time);
+				messageLiteral.text = ::convert_endian(messageLiteral.text);
+				messageLiteralThread.thread = ::convert_endian(messageLiteralThread.thread);
+				break;
+			case QueueType::MessageLiteralColor:
+			case QueueType::MessageLiteralColorCallstack:
+				messageColorLiteral.b = ::convert_endian(messageColorLiteral.b);
+				messageColorLiteral.g = ::convert_endian(messageColorLiteral.g);
+				messageColorLiteral.r = ::convert_endian(messageColorLiteral.r);
+				messageColorLiteral.time = ::convert_endian(messageColorLiteral.time);
+				messageColorLiteral.text = ::convert_endian(messageColorLiteral.text);
+				messageColorLiteralThread.thread = ::convert_endian(messageColorLiteralThread.thread);
+				break;
+			case QueueType::GpuNewContext:
+				gpuNewContext.context = ::convert_endian(gpuNewContext.context);
+				gpuNewContext.type = ::convert_endian(gpuNewContext.type);
+				gpuNewContext.flags = ::convert_endian(gpuNewContext.flags);
+				gpuNewContext.cpuTime = ::convert_endian(gpuNewContext.cpuTime);
+				gpuNewContext.gpuTime = ::convert_endian(gpuNewContext.gpuTime);
+				gpuNewContext.period = ::convert_endian(gpuNewContext.period);
+				gpuNewContext.thread = ::convert_endian(gpuNewContext.thread);
+				break;
+			case QueueType::GpuZoneBegin:
+			case QueueType::GpuZoneBeginSerial:
+			case QueueType::GpuZoneBeginCallstackSerial:
+			case QueueType::GpuZoneBeginCallstack:
+			case QueueType::GpuZoneBeginAllocSrcLoc:
+			case QueueType::GpuZoneBeginAllocSrcLocCallstack:
+			case QueueType::GpuZoneBeginAllocSrcLocSerial:
+			case QueueType::GpuZoneBeginAllocSrcLocCallstackSerial:
+				gpuZoneBegin.context = ::convert_endian(gpuZoneBegin.context);
+				gpuZoneBegin.cpuTime = ::convert_endian(gpuZoneBegin.cpuTime);
+				gpuZoneBegin.queryId = ::convert_endian(gpuZoneBegin.queryId);
+				gpuZoneBegin.thread = ::convert_endian(gpuZoneBegin.thread);
+				gpuZoneBegin.srcloc = ::convert_endian(gpuZoneBegin.srcloc);
+				break;
+			case QueueType::GpuZoneEnd:
+			case QueueType::GpuZoneEndSerial:
+				gpuZoneEnd.context = ::convert_endian(gpuZoneEnd.context);
+				gpuZoneEnd.cpuTime = ::convert_endian(gpuZoneEnd.cpuTime);
+				gpuZoneEnd.queryId = ::convert_endian(gpuZoneEnd.queryId);
+				gpuZoneEnd.thread = ::convert_endian(gpuZoneEnd.thread);
+				break;
+			case QueueType::GpuTime:
+				gpuTime.gpuTime = ::convert_endian(gpuTime.gpuTime);
+				gpuTime.context = ::convert_endian(gpuTime.context);
+				gpuTime.queryId = ::convert_endian(gpuTime.queryId);
+				break;
+			case QueueType::GpuCalibration:
+				gpuCalibration.context = ::convert_endian(gpuCalibration.context);
+				gpuCalibration.cpuDelta = ::convert_endian(gpuCalibration.cpuDelta);
+				gpuCalibration.cpuTime = ::convert_endian(gpuCalibration.cpuTime);
+				gpuCalibration.gpuTime = ::convert_endian(gpuCalibration.gpuTime);
+				break;
+			case QueueType::GpuTimeSync:
+				gpuTimeSync.cpuTime = ::convert_endian(gpuTimeSync.cpuTime);
+				gpuTimeSync.gpuTime = ::convert_endian(gpuTimeSync.gpuTime);
+				gpuTimeSync.context = ::convert_endian(gpuTimeSync.context);
+				break;
+			case QueueType::GpuContextName:
+				gpuContextNameFat.context = ::convert_endian(gpuContextNameFat.context);
+				gpuContextNameFat.ptr = ::convert_endian(gpuContextNameFat.ptr);
+				gpuContextNameFat.size = ::convert_endian(gpuContextNameFat.size);
+				break;
+			case QueueType::GpuAnnotationName:
+				gpuAnnotationNameFat.context = ::convert_endian(gpuAnnotationNameFat.context);
+				gpuAnnotationNameFat.noteId = ::convert_endian(gpuAnnotationNameFat.noteId);
+				gpuAnnotationNameFat.size = ::convert_endian(gpuAnnotationNameFat.size);
+				gpuAnnotationNameFat.ptr = ::convert_endian(gpuAnnotationNameFat.ptr);
+				break;
+			case QueueType::MemAlloc:
+			case QueueType::MemAllocNamed:
+			case QueueType::MemAllocCallstack:
+			case QueueType::MemAllocCallstackNamed:
+				memAlloc.ptr = ::convert_endian(memAlloc.ptr);
+				::convert_endian(memAlloc.size);
+				memAlloc.thread = ::convert_endian(memAlloc.thread);
+				memAlloc.time = ::convert_endian(memAlloc.time);
+				break;
+			case QueueType::MemFree:
+			case QueueType::MemFreeNamed:
+			case QueueType::MemFreeCallstack:
+			case QueueType::MemFreeCallstackNamed:
+				memFree.ptr = ::convert_endian(memFree.ptr);
+				memFree.thread = ::convert_endian(memFree.thread);
+				memFree.time = ::convert_endian(memFree.time);
+				break;
+			case QueueType::MemDiscard:
+			case QueueType::MemDiscardCallstack:
+				memDiscard.name = ::convert_endian(memDiscard.name);
+				memDiscard.thread = ::convert_endian(memDiscard.thread);
+				memDiscard.time = ::convert_endian(memDiscard.time);
+				break;
+			case QueueType::MemNamePayload:
+				memName.name = ::convert_endian(memName.name);
+				break;
+			case QueueType::ThreadGroupHint:
+				threadGroupHint.groupHint = ::convert_endian(threadGroupHint.groupHint);
+				threadGroupHint.thread = ::convert_endian(threadGroupHint.thread);
+				break;
+			case QueueType::Callstack:
+			case QueueType::CallstackSerial:
+				callstackFat.ptr = ::convert_endian(callstackFat.ptr);
+				callstackFatThread.thread = ::convert_endian(callstackFatThread.thread);
+				break;
+			case QueueType::CallstackAlloc:
+				callstackAllocFat.ptr = ::convert_endian(callstackAllocFat.ptr);
+				callstackAllocFat.nativePtr = ::convert_endian(callstackAllocFat.nativePtr);
+				callstackAllocFatThread.thread = ::convert_endian(callstackAllocFatThread.thread);
+				break;
+			case QueueType::CallstackSample:
+			case QueueType::CallstackSampleContextSwitch:
+				callstackSampleFat.thread = ::convert_endian(callstackSampleFat.thread);
+				callstackSampleFat.time = ::convert_endian(callstackSampleFat.time);
+				callstackSampleFat.ptr = ::convert_endian(callstackSampleFat.ptr);
+				break;
+			case QueueType::CallstackFrameSize:
+				callstackFrameSizeFat.size = ::convert_endian(callstackFrameSizeFat.size);
+				callstackFrameSizeFat.ptr = ::convert_endian(callstackFrameSizeFat.ptr);
+				callstackFrameSizeFat.data = ::convert_endian(callstackFrameSizeFat.data);
+				callstackFrameSizeFat.imageName = ::convert_endian(callstackFrameSizeFat.imageName);
+				break;
+			case QueueType::CallstackFrame:
+				callstackFrame.line = ::convert_endian(callstackFrame.line);
+				callstackFrame.symAddr = ::convert_endian(callstackFrame.symAddr);
+				callstackFrame.symLen = ::convert_endian(callstackFrame.symLen);
+				break;
+			case QueueType::SymbolInformation:
+				symbolInformationFat.line = ::convert_endian(symbolInformationFat.line);
+				symbolInformationFat.symAddr = ::convert_endian(symbolInformationFat.symAddr);
+				symbolInformationFat.fileString = ::convert_endian(symbolInformationFat.fileString);
+				symbolInformationFat.needFree = ::convert_endian(symbolInformationFat.needFree);
+				break;
+			case QueueType::CrashReport:
+				crashReport.text = ::convert_endian(crashReport.text);
+				crashReport.time = ::convert_endian(crashReport.time);
+				crashReportThread.thread = ::convert_endian(crashReportThread.thread);
+				break;
+			case QueueType::SysTimeReport:
+				sysTime.sysTime = ::convert_endian(sysTime.sysTime);
+				sysTime.time = ::convert_endian(sysTime.time);
+				break;
+			case QueueType::SysPowerReport:
+				sysPower.delta = ::convert_endian(sysPower.delta);
+				sysPower.name = ::convert_endian(sysPower.name);
+				sysPower.time = ::convert_endian(sysPower.time);
+				break;
+			case QueueType::ContextSwitch:
+				contextSwitch.cpu = ::convert_endian(contextSwitch.cpu);
+				contextSwitch.newThread = ::convert_endian(contextSwitch.newThread);
+				contextSwitch.newThreadPriority = ::convert_endian(contextSwitch.newThreadPriority);
+				contextSwitch.oldThread = ::convert_endian(contextSwitch.oldThread);
+				contextSwitch.oldThreadState = ::convert_endian(contextSwitch.oldThreadState);
+				contextSwitch.oldThreadPriority = ::convert_endian(contextSwitch.oldThreadPriority);
+				contextSwitch.oldThreadWaitReason = ::convert_endian(contextSwitch.oldThreadWaitReason);
+				contextSwitch.time = ::convert_endian(contextSwitch.time);
+				contextSwitch.previousCState = ::convert_endian(contextSwitch.previousCState);
+				break;
+			case QueueType::ThreadWakeup:
+				threadWakeup.thread = ::convert_endian(threadWakeup.thread);
+				threadWakeup.adjustIncrement = ::convert_endian(threadWakeup.adjustIncrement);
+				threadWakeup.adjustReason = ::convert_endian(threadWakeup.adjustReason);
+				threadWakeup.time = ::convert_endian(threadWakeup.time);
+				threadWakeup.cpu = ::convert_endian(threadWakeup.cpu);
+				break;
+			case QueueType::TidToPid:
+				tidToPid.pid = ::convert_endian(tidToPid.pid);
+				tidToPid.tid = ::convert_endian(tidToPid.tid);
+				break;
+			case QueueType::HwSampleCpuCycle:
+			case QueueType::HwSampleInstructionRetired:
+			case QueueType::HwSampleCacheReference:
+			case QueueType::HwSampleCacheMiss:
+			case QueueType::HwSampleBranchRetired:
+			case QueueType::HwSampleBranchMiss:
+				hwSample.ip = ::convert_endian(hwSample.ip);
+				hwSample.time = ::convert_endian(hwSample.time);
+				break;
+			case QueueType::PlotConfig:
+				plotConfig.type = ::convert_endian(plotConfig.type);
+				plotConfig.color = ::convert_endian(plotConfig.color);
+				plotConfig.fill = ::convert_endian(plotConfig.fill);
+				plotConfig.step = ::convert_endian(plotConfig.step);
+				plotConfig.name = ::convert_endian(plotConfig.name);
+				break;
+			case QueueType::ParamSetup:
+				paramSetup.idx = ::convert_endian(paramSetup.idx);
+				paramSetup.isBool = ::convert_endian(paramSetup.isBool);
+				paramSetup.name = ::convert_endian(paramSetup.name);
+				paramSetup.val = ::convert_endian(paramSetup.val);
+				break;
+			case QueueType::CpuTopology:
+				cpuTopology.core = ::convert_endian(cpuTopology.core);
+				cpuTopology.die = ::convert_endian(cpuTopology.die);
+				cpuTopology.thread = ::convert_endian(cpuTopology.thread);
+				cpuTopology.package = ::convert_endian(cpuTopology.package);
+				break;
+			case QueueType::ExternalNameMetadata:
+				externalNameMetadata.name = ::convert_endian(externalNameMetadata.name);
+				externalNameMetadata.thread = ::convert_endian(externalNameMetadata.thread);
+				externalNameMetadata.threadName = ::convert_endian(externalNameMetadata.threadName);
+				break;
+			case QueueType::SymbolCodeMetadata:
+				symbolCodeMetadata.symbol = ::convert_endian(symbolCodeMetadata.symbol);
+				symbolCodeMetadata.ptr = ::convert_endian(symbolCodeMetadata.ptr);
+				symbolCodeMetadata.size = ::convert_endian(symbolCodeMetadata.size);
+				break;
+			case QueueType::SourceCodeMetadata:
+				sourceCodeMetadata.id = ::convert_endian(sourceCodeMetadata.id);
+				sourceCodeMetadata.ptr = ::convert_endian(sourceCodeMetadata.ptr);
+				sourceCodeMetadata.size = ::convert_endian(sourceCodeMetadata.size);
+				break;
+			case QueueType::AckSourceCodeNotAvailable:
+				sourceCodeNotAvailable.id = ::convert_endian(sourceCodeNotAvailable.id);
+				break;
+			case QueueType::FiberEnter:
+				fiberEnter.fiber = ::convert_endian(fiberEnter.fiber);
+				fiberEnter.groupHint = ::convert_endian(fiberEnter.groupHint);
+				fiberEnter.thread = ::convert_endian(fiberEnter.thread);
+				fiberEnter.time = ::convert_endian(fiberEnter.time);
+				break;
+			case QueueType::FiberLeave:
+				fiberLeave.thread = ::convert_endian(fiberLeave.thread);
+				fiberLeave.time = ::convert_endian(fiberLeave.time);
+				break;
+			case QueueType::GpuZoneAnnotation:
+				zoneAnnotation.context = ::convert_endian(zoneAnnotation.context);
+				zoneAnnotation.noteId = ::convert_endian(zoneAnnotation.noteId);
+				zoneAnnotation.queryId = ::convert_endian(zoneAnnotation.queryId);
+				zoneAnnotation.thread = ::convert_endian(zoneAnnotation.thread);
+				zoneAnnotation.value = ::convert_endian(zoneAnnotation.value);
+				break;
+			case QueueType::Terminate:
+			case QueueType::KeepAlive:
+			case QueueType::Crash:
+			case QueueType::AckServerQueryNoop:
+			case QueueType::AckSymbolCodeNotAvailable:
+			case QueueType::SingleStringData:
+			case QueueType::SecondStringData:
+				break;
+			default:
+				assert(false);
+				break;
+		}
+	}
 };
 #pragma pack( pop )
 
