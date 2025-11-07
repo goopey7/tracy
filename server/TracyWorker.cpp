@@ -3748,7 +3748,9 @@ void Worker::AddSourceLocationPayload( const char* data, size_t sz )
 
     uint32_t color, line;
     memcpy( &color, data, 4 );
+	color = convert_endian(color);
     memcpy( &line, data + 4, 4 );
+	line = convert_endian(line);
     data += 8;
     auto end = data + strlen( data );
 
@@ -4026,7 +4028,7 @@ void Worker::AddCallstackPayload( const char* _data, size_t _sz )
     auto src = (uint64_t*)_data;
     for( size_t i=0; i<sz; i++ )
     {
-        *dst++ = PackPointer( *src++ );
+        *dst++ = PackPointer( convert_endian(*src++) );
     }
 
     auto arr = (VarArray<CallstackFrameId>*)( mem + sz * sizeof( CallstackFrameId ) );
@@ -4065,9 +4067,12 @@ void Worker::AddCallstackAllocPayload( const char* data )
         uint16_t sz;
         CallstackFrame cf;
         memcpy( &cf.line, data, 4 ); data += 4;
+		cf.line = convert_endian(cf.line);
         memcpy( &sz, data, 2 ); data += 2;
+		sz = convert_endian(sz);
         cf.name = StoreString( data, sz ).idx; data += sz;
         memcpy( &sz, data, 2 ); data += 2;
+		sz = convert_endian(sz);
         cf.file = StoreString( data, sz ).idx; data += sz;
         cf.symAddr = 0;
         CallstackFrameData cfd = { &cf, 1 };
