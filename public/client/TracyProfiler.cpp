@@ -3281,11 +3281,13 @@ void Profiler::SendString( uint64_t str, const char* ptr, size_t len, QueueType 
 
     assert( len <= std::numeric_limits<uint16_t>::max() );
     auto l16 = uint16_t( len );
+	auto l16_net = convert_endian(l16);
 
     NeedDataSize( QueueDataSize[(int)type] + sizeof( l16 ) + l16 );
 
+	item.convert_endian();
     AppendDataUnsafe( &item, QueueDataSize[(int)type] );
-    AppendDataUnsafe( &l16, sizeof( l16 ) );
+    AppendDataUnsafe( &l16_net, sizeof( l16_net ) );
     AppendDataUnsafe( ptr, l16 );
 }
 
@@ -3296,11 +3298,12 @@ void Profiler::SendSingleString( const char* ptr, size_t len )
 
     assert( len <= std::numeric_limits<uint16_t>::max() );
     auto l16 = uint16_t( len );
+	auto l16_net = convert_endian(l16);
 
     NeedDataSize( QueueDataSize[(int)QueueType::SingleStringData] + sizeof( l16 ) + l16 );
 
     AppendDataUnsafe( &item, QueueDataSize[(int)QueueType::SingleStringData] );
-    AppendDataUnsafe( &l16, sizeof( l16 ) );
+    AppendDataUnsafe( &l16_net, sizeof( l16_net ) );
     AppendDataUnsafe( ptr, l16 );
 }
 
@@ -3311,6 +3314,7 @@ void Profiler::SendSecondString( const char* ptr, size_t len )
 
     assert( len <= std::numeric_limits<uint16_t>::max() );
     auto l16 = uint16_t( len );
+	auto l16_net = convert_endian(l16);
 
     NeedDataSize( QueueDataSize[(int)QueueType::SecondStringData] + sizeof( l16 ) + l16 );
 
@@ -3332,11 +3336,13 @@ void Profiler::SendLongString( uint64_t str, const char* ptr, size_t len, QueueT
     assert( len <= std::numeric_limits<uint32_t>::max() );
     assert( QueueDataSize[(int)type] + sizeof( uint32_t ) + len <= TargetFrameSize );
     auto l32 = uint32_t( len );
+	auto l32_net = convert_endian(l32);
 
     NeedDataSize( QueueDataSize[(int)type] + sizeof( l32 ) + l32 );
 
+	item.convert_endian();
     AppendDataUnsafe( &item, QueueDataSize[(int)type] );
-    AppendDataUnsafe( &l32, sizeof( l32 ) );
+    AppendDataUnsafe( &l32_net, sizeof( l32_net ) );
     AppendDataUnsafe( ptr, l32 );
 }
 
@@ -3368,11 +3374,13 @@ void Profiler::SendSourceLocationPayload( uint64_t _ptr )
     assert( len > 2 );
     len -= 2;
     ptr += 2;
+	auto len_net = convert_endian(len);
 
     NeedDataSize( QueueDataSize[(int)QueueType::SourceLocationPayload] + sizeof( len ) + len );
 
+	item.convert_endian();
     AppendDataUnsafe( &item, QueueDataSize[(int)QueueType::SourceLocationPayload] );
-    AppendDataUnsafe( &len, sizeof( len ) );
+    AppendDataUnsafe( &len_net, sizeof( len_net ) );
     AppendDataUnsafe( ptr, len );
 }
 
@@ -3387,11 +3395,13 @@ void Profiler::SendCallstackPayload( uint64_t _ptr )
     const auto sz = *ptr++;
     const auto len = sz * sizeof( uint64_t );
     const auto l16 = uint16_t( len );
+	const auto l16_net = convert_endian(l16);
 
     NeedDataSize( QueueDataSize[(int)QueueType::CallstackPayload] + sizeof( l16 ) + l16 );
 
+	item.convert_endian();
     AppendDataUnsafe( &item, QueueDataSize[(int)QueueType::CallstackPayload] );
-    AppendDataUnsafe( &l16, sizeof( l16 ) );
+    AppendDataUnsafe( &l16_net, sizeof( l16_net ) );
 
     if( compile_time_condition<sizeof( uintptr_t ) == sizeof( uint64_t )>::value )
     {
@@ -3418,11 +3428,13 @@ void Profiler::SendCallstackPayload64( uint64_t _ptr )
     const auto sz = *ptr++;
     const auto len = sz * sizeof( uint64_t );
     const auto l16 = uint16_t( len );
+	const auto l16_net = convert_endian(l16);
 
     NeedDataSize( QueueDataSize[(int)QueueType::CallstackPayload] + sizeof( l16 ) + l16 );
 
+	item.convert_endian();
     AppendDataUnsafe( &item, QueueDataSize[(int)QueueType::CallstackPayload] );
-    AppendDataUnsafe( &l16, sizeof( l16 ) );
+    AppendDataUnsafe( &l16_net, sizeof( l16_net ) );
     AppendDataUnsafe( ptr, sizeof( uint64_t ) * sz );
 }
 
@@ -3437,11 +3449,13 @@ void Profiler::SendCallstackAlloc( uint64_t _ptr )
     uint16_t len;
     memcpy( &len, ptr, 2 );
     ptr += 2;
+	auto len_net = convert_endian(len);
 
     NeedDataSize( QueueDataSize[(int)QueueType::CallstackAllocPayload] + sizeof( len ) + len );
 
+	item.convert_endian();
     AppendDataUnsafe( &item, QueueDataSize[(int)QueueType::CallstackAllocPayload] );
-    AppendDataUnsafe( &len, sizeof( len ) );
+    AppendDataUnsafe( &len_net, sizeof( len_net ) );
     AppendDataUnsafe( ptr, len );
 }
 
