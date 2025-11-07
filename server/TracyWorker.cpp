@@ -3255,8 +3255,9 @@ bool Worker::DispatchProcess( const QueueItem& evIn, const char*& ptr )
             ev.hdr.type == QueueType::SymbolCode ||
             ev.hdr.type == QueueType::SourceCode )
         {
-            uint32_t sz;
-            memcpy( &sz, ptr, sizeof( sz ) );
+            uint32_t sz_net;
+            memcpy( &sz_net, ptr, sizeof( sz_net ) );
+			uint32_t sz = convert_endian(sz_net);
             ptr += sizeof( sz );
             switch( ev.hdr.type )
             {
@@ -3279,8 +3280,9 @@ bool Worker::DispatchProcess( const QueueItem& evIn, const char*& ptr )
         }
         else
         {
-            uint16_t sz;
-            memcpy( &sz, ptr, sizeof( sz ) );
+            uint16_t sz_net;
+            memcpy( &sz_net, ptr, sizeof( sz_net ) );
+			uint16_t sz = convert_endian(sz_net);
             ptr += sizeof( sz );
             switch( ev.hdr.type )
             {
@@ -3330,23 +3332,30 @@ bool Worker::DispatchProcess( const QueueItem& evIn, const char*& ptr )
     }
     else
     {
-        uint16_t sz;
         switch( ev.hdr.type )
         {
         case QueueType::SingleStringData:
-            ptr += sizeof( QueueHeader );
-            memcpy( &sz, ptr, sizeof( sz ) );
-            ptr += sizeof( sz );
-            AddSingleString( ptr, sz );
-            ptr += sz;
-            return true;
+			{
+				ptr += sizeof( QueueHeader );
+				uint16_t sz_net;
+				memcpy( &sz_net, ptr, sizeof( sz_net ) );
+				ptr += sizeof( sz_net );
+				uint16_t sz = convert_endian(sz_net);
+				AddSingleString( ptr, sz );
+				ptr += sz;
+				return true;
+			}
         case QueueType::SecondStringData:
-            ptr += sizeof( QueueHeader );
-            memcpy( &sz, ptr, sizeof( sz ) );
-            ptr += sizeof( sz );
-            AddSecondString( ptr, sz );
-            ptr += sz;
-            return true;
+			{
+				ptr += sizeof( QueueHeader );
+				uint16_t sz_net;
+				memcpy( &sz_net, ptr, sizeof( sz_net ) );
+				ptr += sizeof( sz_net );
+				uint16_t sz = convert_endian(sz_net);
+				AddSecondString( ptr, sz );
+				ptr += sz;
+				return true;
+			}
         default:
             ptr += QueueDataSize[ev.hdr.idx];
             return Process( ev );
