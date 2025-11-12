@@ -3,6 +3,8 @@
 
 #if defined _WIN32
 #  include <windows.h>
+#elif defined __wii__
+#  include <ogc/lwp.h>
 #else
 #  include <pthread.h>
 #endif
@@ -56,7 +58,36 @@ private:
     void* m_ptr;
     HANDLE m_hnd;
 };
+#elif __wii__
+class Thread
+{
+public:
+    Thread( void ( *func )( void* ptr ), void* ptr )
+        : m_func( func )
+        , m_ptr( ptr )
+    {
+        static constexpr u8 priority = 64;
+        LWP_CreateThread( &m_thread, Launch, this, nullptr, 0, priority );
+    }
 
+    ~Thread()
+    {
+        LWP_JoinThread( m_thread, nullptr );
+    }
+
+    [[nodiscard]] lwp_t Handle() const { return m_thread; }
+
+private:
+    static void* Launch( void* ptr )
+    {
+        ( (Thread*)ptr )->m_func( ( (Thread*)ptr )->m_ptr );
+        return nullptr;
+    }
+
+    void ( *m_func )( void* ptr );
+    void* m_ptr;
+    lwp_t m_thread;
+};
 #else
 
 class Thread
