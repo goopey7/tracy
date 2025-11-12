@@ -609,6 +609,12 @@ static const char* GetHostInfo()
 #  endif
 
     ptr += sprintf( ptr, "User: %s@%s\n", user, hostname );
+#elif defined __wii__
+    InitWiiNetwork();
+    char hostname[64];
+    char ip[16], netmask[16], gateway[16];
+    if_config( ip, netmask, gateway, true, 0 );
+    snprintf( hostname, sizeof( hostname ), "Wii-%s", ip );
 #else
     char hostname[_POSIX_HOST_NAME_MAX]{};
     char user[_POSIX_LOGIN_NAME_MAX]{};
@@ -1550,7 +1556,7 @@ Profiler::Profiler()
 
 #ifndef _WIN32
     pipe(m_pipe);
-#  if defined __APPLE__ || defined BSD
+#  if defined __APPLE__ || defined BSD || defined __wii__
     // FreeBSD/XNU don't have F_SETPIPE_SZ, so use the default
     m_pipeBufSize = 16384;
 #  else
