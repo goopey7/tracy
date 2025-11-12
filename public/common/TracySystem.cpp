@@ -13,6 +13,7 @@
 #  include "TracyWinFamily.hpp"
 #elif __wii__
 #  include <ogc/lwp.h>
+#  include <string.h>
 #else
 #  include <pthread.h>
 #  include <string.h>

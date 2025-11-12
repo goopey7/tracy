@@ -444,6 +444,9 @@ int Socket::GetSendBufSize()
 #if defined _WIN32
     int sz = sizeof( bufSize );
     getsockopt( sock, SOL_SOCKET, SO_SNDBUF, (char*)&bufSize, &sz );
+#elif __wii__
+    socklen_t sz = sizeof( bufSize );
+    getsockopt( sock, SOL_SOCKET, SO_SNDBUF, &bufSize, sz );
 #else
     socklen_t sz = sizeof( bufSize );
     getsockopt( sock, SOL_SOCKET, SO_SNDBUF, &bufSize, &sz );
@@ -486,9 +489,15 @@ int Socket::Recv( void* _buf, int len, int timeout )
     const auto sock = m_sock.load( std::memory_order_relaxed );
     auto buf = (char*)_buf;
 
+#ifdef __wii__
+    struct pollsd fd;
+    fd.socket = (socket_t)sock;
+    fd.events = POLLIN;
+#else
     struct pollfd fd;
     fd.fd = (socket_t)sock;
     fd.events = POLLIN;
+#endif
 
     if( poll( &fd, 1, timeout ) > 0 )
     {
@@ -569,9 +578,15 @@ bool Socket::HasData()
     const auto sock = m_sock.load( std::memory_order_relaxed );
     if( m_bufLeft > 0 ) return true;
 
+#ifdef __wii__
+    struct pollsd fd;
+    fd.socket = (socket_t)sock;
+    fd.events = POLLIN;
+#else
     struct pollfd fd;
     fd.fd = (socket_t)sock;
     fd.events = POLLIN;
+#endif
 
     return poll( &fd, 1, 0 ) > 0;
 }
@@ -693,12 +708,22 @@ bool ListenSocket::Listen( uint16_t port, int backlog )
 
 Socket* ListenSocket::Accept()
 {
+#ifdef __wii__
+	struct sockaddr_in remote;
+#else
     struct sockaddr_storage remote;
+#endif
     socklen_t sz = sizeof( remote );
 
+#ifdef __wii__
+    struct pollsd fd;
+    fd.socket = (socket_t)m_sock;
+    fd.events = POLLIN;
+#else
     struct pollfd fd;
     fd.fd = (socket_t)m_sock;
     fd.events = POLLIN;
+#endif
 
     if( poll( &fd, 1, 10 ) > 0 )
     {
@@ -736,6 +761,8 @@ UdpBroadcast::UdpBroadcast()
 {
 #ifdef _WIN32
     InitWinSock();
+#elif __wii__
+	InitWiiNetwork();
 #endif
 }
 
@@ -758,11 +785,18 @@ bool UdpBroadcast::Open( const char* addr, uint16_t port )
     int broadcast = 1;
     if( setsockopt( sock, SOL_SOCKET, SO_BROADCAST, &broadcast, sizeof( broadcast ) ) == -1 )
     {
-        close( socket );
+        close( sock );
         return false;
     }
     m_sock = sock;
-    inet_pton( AF_INET, addr, &m_addr );
+    struct in_addr temp;
+    if( inet_aton( addr, &temp ) == 0 )
+    {
+        close( sock );
+        m_sock = -1;
+        return false;
+    }
+    m_addr = temp.s_addr;
     return true;
 #else
 
@@ -851,7 +885,19 @@ void IpAddress::Set( const struct sockaddr& addr )
 #else
     auto ai = (const struct sockaddr_in*)&addr;
 #endif
+#ifdef __wii__
+    const char* txt = inet_ntoa( ai->sin_addr );
+    if( txt )
+    {
+        strncpy( m_text, txt, sizeof( m_text ) );
+    }
+    else
+    {
+        strcpy( m_text, "0.0.0.0" );
+    }
+#else
     inet_ntop( AF_INET, &ai->sin_addr, m_text, 17 );
+#endif
     m_number = ai->sin_addr.s_addr;
 }
 
@@ -860,6 +906,8 @@ UdpListen::UdpListen()
 {
 #ifdef _WIN32
     InitWinSock();
+#elif __wii__
+	InitWiiNetwork();
 #endif
 }
 
@@ -936,9 +984,15 @@ const char* UdpListen::Read( size_t& len, IpAddress& addr, int timeout )
 {
     static char buf[2048];
 
+#ifdef __wii__
+	struct pollsd fd;
+    fd.socket = (socket_t)m_sock;
+    fd.events = POLLIN;
+#else
     struct pollfd fd;
     fd.fd = (socket_t)m_sock;
     fd.events = POLLIN;
+#endif
     if( poll( &fd, 1, timeout ) <= 0 ) return nullptr;
 
     sockaddr sa;
