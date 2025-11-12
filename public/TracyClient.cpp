@@ -33,6 +33,9 @@
 #include "client/TracyAlloc.cpp"
 #include "client/TracyOverride.cpp"
 #include "client/TracyKCore.cpp"
+#ifdef __wii__
+#include "common/wii/atomic_stub.cpp"
+#endif
 
 #ifdef TRACY_ROCPROF
 #  include "client/TracyRocprof.cpp"
