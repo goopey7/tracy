@@ -25,7 +25,7 @@
 #    pragma comment(lib, "ws2_32.lib")
 #  endif
 #elif defined __wii__
-#  include "wii/posix_macros.h"
+#  include "wii/posix_macros.hpp"
 #  include <errno.h>
 #  include <network.h>
 #  include <ogc/system.h>
