@@ -24,6 +24,10 @@
 #  ifdef _MSC_VER
 #    pragma comment(lib, "ws2_32.lib")
 #  endif
+#elif defined __wii__
+#  include "wii/posix_macros.h"
+#  include <network.h>
+#  include <ogc/system.h>
 #else
 #  include <arpa/inet.h>
 #  include <sys/socket.h>
@@ -67,8 +71,31 @@ void InitWinSock()
 {
     static __wsinit init;
 }
-#endif
+#elif __wii__
+bool InitWiiNetwork()
+{
+    static bool WiiNetworkInitialized = false;
+    static bool WiiNetworkAvailable = false;
 
+    if( WiiNetworkInitialized )
+    {
+        return WiiNetworkAvailable;
+    }
+
+    WiiNetworkInitialized = true;
+
+    char local_ip[16] = { 0 };
+    char gateway[16] = { 0 };
+    char netmask[16] = { 0 };
+
+    static constexpr bool use_dhcp = true;
+    static constexpr int max_retries = 20;
+    s32 ret = if_config( local_ip, netmask, gateway, use_dhcp, max_retries );
+
+    WiiNetworkAvailable = ret >= 0;
+    return WiiNetworkAvailable;
+}
+#endif
 
 enum { BufSize = 128 * 1024 };
 
