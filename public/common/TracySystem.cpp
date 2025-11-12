@@ -11,6 +11,8 @@
 #  include <windows.h>
 #  include <malloc.h>
 #  include "TracyWinFamily.hpp"
+#elif __wii__
+#  include <ogc/lwp.h>
 #else
 #  include <pthread.h>
 #  include <string.h>
@@ -88,6 +90,8 @@ TRACY_API uint32_t GetThreadHandleImpl()
 #elif defined __EMSCRIPTEN__
     // Not supported, but let it compile.
     return 0;
+#elif defined __wii__
+    return LWP_GetSelf();
 #else
     // To add support for a platform, retrieve and return the kernel thread identifier here.
     //
