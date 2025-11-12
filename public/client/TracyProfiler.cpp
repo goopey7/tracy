@@ -796,6 +796,8 @@ static uint64_t GetPid()
 {
 #if defined _WIN32
     return uint64_t( GetCurrentProcessId() );
+#elif __wii__
+	return 1ull;
 #else
     return uint64_t( getpid() );
 #endif
