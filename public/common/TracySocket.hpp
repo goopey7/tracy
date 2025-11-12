@@ -6,6 +6,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#ifdef __wii__
+#  include <network.h>
+#endif
+
 struct addrinfo;
 struct sockaddr;
 
@@ -219,9 +223,14 @@ private:
     std::atomic<int> m_sock;
     int m_bufLeft;
 
-    struct addrinfo *m_res;
-    struct addrinfo *m_ptr;
+#ifdef __wii__
+    struct sockaddr_in m_serverAddr;
     int m_connSock;
+#else
+    struct addrinfo* m_res;
+    struct addrinfo* m_ptr;
+    int m_connSock;
+#endif
 };
 
 class ListenSocket

@@ -26,8 +26,10 @@
 #  endif
 #elif defined __wii__
 #  include "wii/posix_macros.h"
+#  include <errno.h>
 #  include <network.h>
 #  include <ogc/system.h>
+#  include <sys/_default_fcntl.h>
 #else
 #  include <arpa/inet.h>
 #  include <sys/socket.h>
@@ -104,10 +106,17 @@ Socket::Socket()
     , m_bufPtr( nullptr )
     , m_sock( -1 )
     , m_bufLeft( 0 )
+#ifdef __wii__
+    , m_connSock( -1 )
+#else
     , m_ptr( nullptr )
+    , m_connSock( -1 )
+#endif
 {
 #ifdef _WIN32
     InitWinSock();
+#elif __wii__
+	InitWiiNetwork();
 #endif
 }
 
@@ -116,7 +125,12 @@ Socket::Socket( int sock )
     , m_bufPtr( nullptr )
     , m_sock( sock )
     , m_bufLeft( 0 )
+#ifdef __wii__
+    , m_connSock( -1 )
+#else
     , m_ptr( nullptr )
+    , m_connSock( -1 )
+#endif
 {
 }
 
@@ -127,6 +141,12 @@ Socket::~Socket()
     {
         Close();
     }
+#ifdef __wii__
+    if( m_connSock != -1 )
+    {
+        close( m_connSock );
+    }
+#else
     if( m_ptr )
     {
         freeaddrinfo( m_res );
@@ -136,12 +156,39 @@ Socket::~Socket()
         close( m_connSock );
 #endif
     }
+#endif
 }
 
 bool Socket::Connect( const char* addr, uint16_t port )
 {
     assert( !IsValid() );
 
+#ifdef __wii__
+    if( m_connSock != -1 )
+    {
+        const auto c = connect( m_connSock, (struct sockaddr*)&m_serverAddr, sizeof( m_serverAddr ) );
+        if( c == -1 )
+        {
+            const auto err = errno;
+            if( err == EALREADY || err == EINPROGRESS )
+            {
+                return false;
+            }
+
+            if( err != EISCONN )
+            {
+                close( m_connSock );
+                m_connSock = -1;
+                return false;
+            }
+        }
+        int flags = fcntl( m_connSock, F_GETFL, 0 );
+        fcntl( m_connSock, F_SETFL, flags & ~O_NONBLOCK );
+        m_sock.store( m_connSock, std::memory_order_relaxed );
+        m_connSock = -1;
+        return true;
+    }
+#else
     if( m_ptr )
     {
         const auto c = connect( m_connSock, m_ptr->ai_addr, m_ptr->ai_addrlen );
@@ -182,7 +229,45 @@ bool Socket::Connect( const char* addr, uint16_t port )
         m_ptr = nullptr;
         return true;
     }
+#endif
 
+#ifdef __wii__
+    struct hostent* host = net_gethostbyname( addr );
+
+    struct sockaddr_in server_addr;
+    memset( &server_addr, 0, sizeof( server_addr ) );
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = convert_endian( port );
+    memcpy( &server_addr.sin_addr, host->h_addr_list[0], host->h_length );
+
+    int sock = socket( AF_INET, SOCK_STREAM, IPPROTO_TCP );
+    if( sock == -1 )
+    {
+        return false;
+    }
+
+    int flags = fcntl( sock, F_GETFL, 0 );
+    fcntl( sock, F_SETFL, flags | O_NONBLOCK );
+
+	if (connect(sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) == 0)
+	{
+        flags = fcntl( sock, F_GETFL, 0 );
+        fcntl( sock, F_SETFL, flags & ~O_NONBLOCK );
+        m_sock.store( sock, std::memory_order_relaxed );
+        return true;
+    }
+	else
+	{
+		if (errno != EINPROGRESS)
+		{
+			close(sock);
+			return false;
+		}
+		m_serverAddr = server_addr;
+		m_connSock = sock;
+		return false;
+	}
+#else
     struct addrinfo hints;
     struct addrinfo *res, *ptr;
 
@@ -248,6 +333,7 @@ bool Socket::Connect( const char* addr, uint16_t port )
 
     m_sock.store( sock, std::memory_order_relaxed );
     return true;
+#endif
 }
 
 bool Socket::ConnectBlocking( const char* addr, uint16_t port )
