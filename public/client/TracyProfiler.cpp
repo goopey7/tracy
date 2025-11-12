@@ -13,6 +13,8 @@
 #  ifndef _MSC_VER
 #    include <excpt.h>
 #  endif
+#elif __wii__
+#    include <network.h>
 #else
 #  include <sys/time.h>
 #  include <sys/param.h>
@@ -136,6 +138,20 @@ extern "C" typedef char* (WINAPI *t_WineGetBuildId)();
 
 #ifdef __QNX__
 extern char* __progname;
+#endif
+
+#ifdef __wii__
+#    include <errno.h>
+#    include <ogc/lwp.h>
+#    include <unistd.h>
+
+inline int pipe( int fds[2] )
+{
+    fds[0] = -1;
+    fds[1] = -1;
+    errno = ENOSYS;
+    return -1;
+}
 #endif
 
 namespace tracy
