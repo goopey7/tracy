@@ -170,6 +170,7 @@ TRACY_API void SetThreadNameWithHint( const char* name, int32_t groupHint )
         {
 #if defined __APPLE__
             pthread_setname_np( name );
+#elif defined __wii__
 #else
             pthread_setname_np( pthread_self(), name );
 #endif
@@ -181,6 +182,7 @@ TRACY_API void SetThreadNameWithHint( const char* name, int32_t groupHint )
             buf[15] = '\0';
 #if defined __APPLE__
             pthread_setname_np( buf );
+#elif defined __wii__
 #else
             pthread_setname_np( pthread_self(), buf );
 #endif
