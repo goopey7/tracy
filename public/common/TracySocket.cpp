@@ -116,7 +116,7 @@ Socket::Socket()
 #ifdef _WIN32
     InitWinSock();
 #elif __wii__
-	InitWiiNetwork();
+    InitWiiNetwork();
 #endif
 }
 
@@ -237,7 +237,7 @@ bool Socket::Connect( const char* addr, uint16_t port )
     struct sockaddr_in server_addr;
     memset( &server_addr, 0, sizeof( server_addr ) );
     server_addr.sin_family = AF_INET;
-    server_addr.sin_port = convert_endian( port );
+    server_addr.sin_port = port;
     memcpy( &server_addr.sin_addr, host->h_addr_list[0], host->h_length );
 
     int sock = socket( AF_INET, SOCK_STREAM, IPPROTO_TCP );
@@ -249,24 +249,24 @@ bool Socket::Connect( const char* addr, uint16_t port )
     int flags = fcntl( sock, F_GETFL, 0 );
     fcntl( sock, F_SETFL, flags | O_NONBLOCK );
 
-	if (connect(sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) == 0)
-	{
+    if( connect( sock, (struct sockaddr*)&server_addr, sizeof( server_addr ) ) == 0 )
+    {
         flags = fcntl( sock, F_GETFL, 0 );
         fcntl( sock, F_SETFL, flags & ~O_NONBLOCK );
         m_sock.store( sock, std::memory_order_relaxed );
         return true;
     }
-	else
-	{
-		if (errno != EINPROGRESS)
-		{
-			close(sock);
-			return false;
-		}
-		m_serverAddr = server_addr;
-		m_connSock = sock;
-		return false;
-	}
+    else
+    {
+        if( errno != EINPROGRESS )
+        {
+            close( sock );
+            return false;
+        }
+        m_serverAddr = server_addr;
+        m_connSock = sock;
+        return false;
+    }
 #else
     struct addrinfo hints;
     struct addrinfo *res, *ptr;
@@ -339,6 +339,36 @@ bool Socket::Connect( const char* addr, uint16_t port )
 bool Socket::ConnectBlocking( const char* addr, uint16_t port )
 {
     assert( !IsValid() );
+#ifdef __wii__
+    assert( m_connSock == -1 );
+
+    struct hostent* host = net_gethostbyname( addr );
+    if( !host )
+    {
+        return false;
+    }
+
+    struct sockaddr_in server_addr;
+    memset( &server_addr, 0, sizeof( server_addr ) );
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = port;
+    memcpy( &server_addr.sin_addr, host->h_addr_list[0], host->h_length );
+
+    int sock = socket( AF_INET, SOCK_STREAM, IPPROTO_TCP );
+    if( sock == -1 )
+    {
+        return false;
+    }
+
+    if( connect( sock, (struct sockaddr*)&server_addr, sizeof( server_addr ) ) == -1 )
+    {
+        close( sock );
+        return false;
+    }
+
+    m_sock.store( sock, std::memory_order_relaxed );
+    return true;
+#else
     assert( !m_ptr );
 
     struct addrinfo hints;
@@ -376,6 +406,7 @@ bool Socket::ConnectBlocking( const char* addr, uint16_t port )
 
     m_sock.store( sock, std::memory_order_relaxed );
     return true;
+#endif
 }
 
 void Socket::Close()
@@ -556,6 +587,8 @@ ListenSocket::ListenSocket()
 {
 #ifdef _WIN32
     InitWinSock();
+#elif __wii__
+    InitWiiNetwork();
 #endif
 }
 
@@ -564,6 +597,7 @@ ListenSocket::~ListenSocket()
     if( m_sock != -1 ) Close();
 }
 
+#ifndef __wii__
 static int addrinfo_and_socket_for_family( uint16_t port, int ai_family, struct addrinfo** res )
 {
     struct addrinfo hints;
@@ -584,10 +618,43 @@ static int addrinfo_and_socket_for_family( uint16_t port, int ai_family, struct 
     if (sock == -1) freeaddrinfo( *res );
     return sock;
 }
+#endif
 
 bool ListenSocket::Listen( uint16_t port, int backlog )
 {
     assert( m_sock == -1 );
+
+#ifdef __wii__
+    int sock = socket( AF_INET, SOCK_STREAM, IPPROTO_TCP );
+    if( sock == -1 )
+    {
+        return false;
+    }
+
+    int val = 1;
+    setsockopt( sock, SOL_SOCKET, SO_REUSEADDR, &val, sizeof( val ) );
+
+    struct sockaddr_in addr;
+    memset( &addr, 0, sizeof( addr ) );
+    addr.sin_family = AF_INET;
+    addr.sin_port = port;
+    addr.sin_addr.s_addr = INADDR_ANY;
+
+    if( bind( sock, (struct sockaddr*)&addr, sizeof( addr ) ) == -1 )
+    {
+        close( sock );
+        return false;
+    }
+
+    if( listen( sock, backlog ) == -1 )
+    {
+        close( sock );
+        return false;
+    }
+
+    m_sock = sock;
+    return true;
+#else
 
     struct addrinfo* res = nullptr;
 
@@ -621,6 +688,7 @@ bool ListenSocket::Listen( uint16_t port, int backlog )
     if( listen( m_sock, backlog ) == -1 ) { freeaddrinfo( res ); Close(); return false; }
     freeaddrinfo( res );
     return true;
+#endif
 }
 
 Socket* ListenSocket::Accept()
@@ -680,6 +748,24 @@ bool UdpBroadcast::Open( const char* addr, uint16_t port )
 {
     assert( m_sock == -1 );
 
+#ifdef __wii__
+    int sock = socket( AF_INET, SOCK_DGRAM, IPPROTO_UDP );
+    if( sock == -1 )
+    {
+        return false;
+    }
+
+    int broadcast = 1;
+    if( setsockopt( sock, SOL_SOCKET, SO_BROADCAST, &broadcast, sizeof( broadcast ) ) == -1 )
+    {
+        close( socket );
+        return false;
+    }
+    m_sock = sock;
+    inet_pton( AF_INET, addr, &m_addr );
+    return true;
+#else
+
     struct addrinfo hints;
     struct addrinfo *res, *ptr;
 
@@ -722,6 +808,7 @@ bool UdpBroadcast::Open( const char* addr, uint16_t port )
     m_sock = sock;
     inet_pton( AF_INET, addr, &m_addr );
     return true;
+#endif
 }
 
 void UdpBroadcast::Close()
