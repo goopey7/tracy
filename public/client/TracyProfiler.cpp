@@ -305,6 +305,7 @@ static bool EnsureReadable( uintptr_t address )
     VirtualQuery( reinterpret_cast<void*>( address ), &memInfo, sizeof( memInfo ) );
     return memInfo.Protect != PAGE_NOACCESS;
 }
+#elif __wii__
 #else
 static bool EnsureReadable( uintptr_t address )
 {
@@ -3343,7 +3344,7 @@ void Profiler::SendSecondString( const char* ptr, size_t len )
     NeedDataSize( QueueDataSize[(int)QueueType::SecondStringData] + sizeof( l16 ) + l16 );
 
     AppendDataUnsafe( &item, QueueDataSize[(int)QueueType::SecondStringData] );
-    AppendDataUnsafe( &l16, sizeof( l16 ) );
+    AppendDataUnsafe( &l16_net, sizeof( l16_net ) );
     AppendDataUnsafe( ptr, l16 );
 }
 
