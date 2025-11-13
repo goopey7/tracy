@@ -1051,7 +1051,16 @@ struct QueueItem
 			case QueueType::MemAllocCallstack:
 			case QueueType::MemAllocCallstackNamed:
 				memAlloc.ptr = ::convert_endian(memAlloc.ptr);
-				::convert_endian(memAlloc.size);
+				{
+					uint32_t lo;
+					uint16_t hi;
+					memcpy(&lo, memAlloc.size, 4);
+					memcpy(&hi, memAlloc.size + 4, 2);
+					lo = ::convert_endian(lo);
+					hi = ::convert_endian(hi);
+					memcpy(memAlloc.size, &lo, 4);
+					memcpy(memAlloc.size + 4, &hi, 2);
+				}
 				memAlloc.thread = ::convert_endian(memAlloc.thread);
 				memAlloc.time = ::convert_endian(memAlloc.time);
 				break;
