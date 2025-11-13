@@ -6107,7 +6107,13 @@ MemEvent* Worker::ProcessMemAllocImpl( MemData& memdata, const QueueMemAlloc& ev
     uint16_t hi;
     memcpy( &lo, ev.size, 4 );
     memcpy( &hi, ev.size+4, 2 );
-    const uint64_t size = lo | ( uint64_t( hi ) << 32 );
+    const uint64_t size =
+        ( (uint64_t)ev.size[0] ) |
+        ( (uint64_t)ev.size[1] << 8 ) |
+        ( (uint64_t)ev.size[2] << 16 ) |
+        ( (uint64_t)ev.size[3] << 24 ) |
+        ( (uint64_t)ev.size[4] << 32 ) |
+        ( (uint64_t)ev.size[5] << 40 );
 
     auto& mem = memdata.data.push_next();
     mem.SetPtr( ptr );

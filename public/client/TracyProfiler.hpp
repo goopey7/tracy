@@ -968,14 +968,23 @@ private:
         MemWrite( &item->memAlloc.ptr, (uint64_t)ptr );
         if( compile_time_condition<sizeof( size ) == 4>::value )
         {
-            memcpy( &item->memAlloc.size, &size, 4 );
-            memset( &item->memAlloc.size + 4, 0, 2 );
+            item->memAlloc.size[0] = size & 0xFF;
+            item->memAlloc.size[1] = ( size >> 8 ) & 0xFF;
+            item->memAlloc.size[2] = ( size >> 16 ) & 0xFF;
+            item->memAlloc.size[3] = ( size >> 24 ) & 0xFF;
+            item->memAlloc.size[4] = 0;
+            item->memAlloc.size[5] = 0;
         }
         else
         {
             assert( sizeof( size ) == 8 );
-            memcpy( &item->memAlloc.size, &size, 4 );
-            memcpy( ((char*)&item->memAlloc.size)+4, ((char*)&size)+4, 2 );
+            uint64_t v = size;
+            item->memAlloc.size[0] = ( v >> 0 ) & 0xFF;
+            item->memAlloc.size[1] = ( v >> 8 ) & 0xFF;
+            item->memAlloc.size[2] = ( v >> 16 ) & 0xFF;
+            item->memAlloc.size[3] = ( v >> 24 ) & 0xFF;
+            item->memAlloc.size[4] = ( v >> 32 ) & 0xFF;
+            item->memAlloc.size[5] = ( v >> 40 ) & 0xFF;
         }
         GetProfiler().m_serialQueue.commit_next();
     }
