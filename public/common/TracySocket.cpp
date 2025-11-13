@@ -240,7 +240,7 @@ bool Socket::Connect( const char* addr, uint16_t port )
     server_addr.sin_port = port;
     memcpy( &server_addr.sin_addr, host->h_addr_list[0], host->h_length );
 
-    int sock = socket( AF_INET, SOCK_STREAM, IPPROTO_TCP );
+    int sock = socket( AF_INET, SOCK_STREAM, 0 );
     if( sock == -1 )
     {
         return false;
@@ -354,7 +354,7 @@ bool Socket::ConnectBlocking( const char* addr, uint16_t port )
     server_addr.sin_port = port;
     memcpy( &server_addr.sin_addr, host->h_addr_list[0], host->h_length );
 
-    int sock = socket( AF_INET, SOCK_STREAM, IPPROTO_TCP );
+    int sock = socket( AF_INET, SOCK_STREAM, 0 );
     if( sock == -1 )
     {
         return false;
@@ -640,7 +640,7 @@ bool ListenSocket::Listen( uint16_t port, int backlog )
     assert( m_sock == -1 );
 
 #ifdef __wii__
-    int sock = socket( AF_INET, SOCK_STREAM, IPPROTO_TCP );
+    int sock = socket( AF_INET, SOCK_STREAM, 0 );
     if( sock == -1 )
     {
         return false;
@@ -776,7 +776,7 @@ bool UdpBroadcast::Open( const char* addr, uint16_t port )
     assert( m_sock == -1 );
 
 #ifdef __wii__
-    int sock = socket( AF_INET, SOCK_DGRAM, IPPROTO_UDP );
+    int sock = socket( AF_INET, SOCK_DGRAM, 0 );
     if( sock == -1 )
     {
         return false;
