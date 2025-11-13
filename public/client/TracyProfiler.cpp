@@ -1515,19 +1515,19 @@ Profiler::Profiler()
     , m_bufferOffset( 0 )
     , m_bufferStart( 0 )
     , m_lz4Buf( (char*)tracy_malloc( LZ4Size + sizeof( lz4sz_t ) ) )
-    , m_serialQueue( 1024*1024 )
-    , m_serialDequeue( 1024*1024 )
+    , m_serialQueue( 16 )
+    , m_serialDequeue( 16 )
 #ifndef TRACY_NO_FRAME_IMAGE
     , m_fiQueue( 16 )
     , m_fiDequeue( 16 )
 #endif
-    , m_symbolQueue( 8*1024 )
+    , m_symbolQueue( 16 )
     , m_frameCount( 0 )
     , m_isConnected( false )
 #ifdef TRACY_ON_DEMAND
     , m_connectionId( 0 )
     , m_symbolsBusy( false )
-    , m_deferredQueue( 64*1024 )
+    , m_deferredQueue( 16 )
 #endif
     , m_paramCallback( nullptr )
     , m_sourceCallback( nullptr )
