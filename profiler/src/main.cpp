@@ -74,10 +74,11 @@ struct ClientData
     int64_t time;
     uint32_t protocolVersion;
     int32_t activeTime;
-    uint16_t port;
     uint64_t pid;
     std::string procName;
     std::string address;
+    uint16_t port;
+    tracy::NetworkByteOrder byteOrder;
 };
 
 enum class ViewShutdown { False, True, Join };
@@ -398,8 +399,18 @@ static void UpdateBroadcastClients()
                 auto msg = broadcastListen->Read( len, addr, 0 );
                 if( !msg ) break;
                 if( len > sizeof( tracy::BroadcastMessage ) ) continue;
+                tracy::NetworkByteOrder byteOrder;
+                memcpy( &byteOrder, msg, sizeof( uint8_t ) );
+                if constexpr( network_byteorder() == std::endian::big )
+                {
+                    if( byteOrder != tracy::NetworkByteOrder::BigEndian ) continue;
+                }
+                else
+                {
+                    if( byteOrder != tracy::NetworkByteOrder::LittleEndian ) continue;
+                }
                 uint16_t broadcastVersion;
-                memcpy( &broadcastVersion, msg, sizeof( uint16_t ) );
+                memcpy( &broadcastVersion, msg + sizeof( uint8_t ), sizeof( uint16_t ) );
                 if( broadcastVersion <= tracy::BroadcastVersion )
                 {
                     uint32_t protoVer;
@@ -410,6 +421,18 @@ static void UpdateBroadcastClients()
 
                     switch( broadcastVersion )
                     {
+					case 4:
+					{
+                        tracy::BroadcastMessage bm;
+                        memcpy( &bm, msg, len );
+                        convert_endian( bm );
+                        protoVer = bm.protocolVersion;
+                        strcpy( procname, bm.programName );
+                        activeTime = bm.activeTime;
+                        listenPort = bm.listenPort;
+                        pid = bm.pid;
+                        break;
+                    }
                     case 3:
                     {
                         tracy::BroadcastMessage bm;
@@ -483,10 +506,11 @@ static void UpdateBroadcastClients()
                                     } );
                             }
                             resolvLock.unlock();
-                            clients.emplace( clientId, ClientData { time, protoVer, activeTime, listenPort, pid, procname, std::move( ip ) } );
+                            clients.emplace( clientId, ClientData { time, protoVer, activeTime, pid, procname, std::move( ip ), listenPort, byteOrder } );
                         }
                         else
                         {
+                            it->second.byteOrder = byteOrder;
                             it->second.time = time;
                             it->second.activeTime = activeTime;
                             it->second.port = listenPort;
@@ -1108,6 +1132,7 @@ static void DrawContents()
                         }
                         ImGui::Separator();
                     }
+                    tracy::TextFocused( "Endian", v.second.byteOrder == tracy::NetworkByteOrder::BigEndian ? "Big" : "Little" );
                     tracy::TextFocused( "IP:", v.second.address.c_str() );
                     tracy::TextFocused( "Port:", portstr );
                     if( v.second.pid != 0 )

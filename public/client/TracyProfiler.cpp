@@ -69,6 +69,7 @@
 
 #include "../common/TracyAlign.hpp"
 #include "../common/TracyAlloc.hpp"
+#include "../common/TracyEndian.hpp"
 #include "../common/TracySocket.hpp"
 #include "../common/TracySystem.hpp"
 #include "../common/TracyYield.hpp"
@@ -798,6 +799,14 @@ static BroadcastMessage& GetBroadcastMessage( const char* procname, size_t pnsz,
 {
     static BroadcastMessage msg;
 
+    if constexpr( network_byteorder() == std::endian::big )
+    {
+        msg.byteOrder = NetworkByteOrder::BigEndian;
+    }
+    else
+    {
+        msg.byteOrder = NetworkByteOrder::LittleEndian;
+    }
     msg.broadcastVersion = BroadcastVersion;
     msg.protocolVersion = ProtocolVersion;
     msg.listenPort = port;
@@ -1900,7 +1909,7 @@ void Profiler::Worker()
                 if( m_broadcast )
                 {
                     broadcastMsg.activeTime = -1;
-                    m_broadcast->Send( broadcastPort, &broadcastMsg, broadcastLen );
+                    m_broadcast->Send( broadcastPort, broadcastMsg );
                 }
                 m_shutdownFinished.store( true, std::memory_order_relaxed );
                 return;
@@ -1932,7 +1941,7 @@ void Profiler::Worker()
                     const auto ts = std::chrono::duration_cast<std::chrono::seconds>( std::chrono::system_clock::now().time_since_epoch() ).count();
                     broadcastMsg.activeTime = int32_t( ts - m_epoch );
                     assert( broadcastMsg.activeTime >= 0 );
-                    m_broadcast->Send( broadcastPort, &broadcastMsg, broadcastLen );
+                    m_broadcast->Send( broadcastPort, broadcastMsg );
                 }
             }
         }
@@ -1941,7 +1950,7 @@ void Profiler::Worker()
         {
             lastBroadcast = 0;
             broadcastMsg.activeTime = -1;
-            m_broadcast->Send( broadcastPort, &broadcastMsg, broadcastLen );
+            m_broadcast->Send( broadcastPort, broadcastMsg );
         }
 
         // Handshake
@@ -1958,6 +1967,7 @@ void Profiler::Worker()
 
             uint32_t protocolVersion;
             res = m_sock->ReadRaw( &protocolVersion, sizeof( protocolVersion ), 2000 );
+            protocolVersion = convert_endian( protocolVersion );
             if( !res )
             {
                 m_sock->~Socket();
@@ -1991,7 +2001,7 @@ void Profiler::Worker()
         m_sock->Send( &handshake, sizeof( handshake ) );
 
         LZ4_resetStream( (LZ4_stream_t*)m_stream );
-        m_sock->Send( &welcome, sizeof( welcome ) );
+        m_sock->Send( welcome );
 
         m_threadCtx = 0;
         m_refTimeSerial = 0;
@@ -2003,7 +2013,7 @@ void Profiler::Worker()
         onDemand.frames = m_frameCount.load( std::memory_order_relaxed );
         onDemand.currentTime = currentTime;
 
-        m_sock->Send( &onDemand, sizeof( onDemand ) );
+        m_sock->Send( onDemand );
 
         m_deferredLock.lock();
         for( auto& item : m_deferredQueue )
@@ -3271,11 +3281,13 @@ void Profiler::SendString( uint64_t str, const char* ptr, size_t len, QueueType 
 
     assert( len <= std::numeric_limits<uint16_t>::max() );
     auto l16 = uint16_t( len );
+	auto l16_net = convert_endian(l16);
 
     NeedDataSize( QueueDataSize[(int)type] + sizeof( l16 ) + l16 );
 
+	item.convert_endian();
     AppendDataUnsafe( &item, QueueDataSize[(int)type] );
-    AppendDataUnsafe( &l16, sizeof( l16 ) );
+    AppendDataUnsafe( &l16_net, sizeof( l16_net ) );
     AppendDataUnsafe( ptr, l16 );
 }
 
@@ -3286,11 +3298,12 @@ void Profiler::SendSingleString( const char* ptr, size_t len )
 
     assert( len <= std::numeric_limits<uint16_t>::max() );
     auto l16 = uint16_t( len );
+	auto l16_net = convert_endian(l16);
 
     NeedDataSize( QueueDataSize[(int)QueueType::SingleStringData] + sizeof( l16 ) + l16 );
 
     AppendDataUnsafe( &item, QueueDataSize[(int)QueueType::SingleStringData] );
-    AppendDataUnsafe( &l16, sizeof( l16 ) );
+    AppendDataUnsafe( &l16_net, sizeof( l16_net ) );
     AppendDataUnsafe( ptr, l16 );
 }
 
@@ -3301,6 +3314,7 @@ void Profiler::SendSecondString( const char* ptr, size_t len )
 
     assert( len <= std::numeric_limits<uint16_t>::max() );
     auto l16 = uint16_t( len );
+	auto l16_net = convert_endian(l16);
 
     NeedDataSize( QueueDataSize[(int)QueueType::SecondStringData] + sizeof( l16 ) + l16 );
 
@@ -3322,11 +3336,13 @@ void Profiler::SendLongString( uint64_t str, const char* ptr, size_t len, QueueT
     assert( len <= std::numeric_limits<uint32_t>::max() );
     assert( QueueDataSize[(int)type] + sizeof( uint32_t ) + len <= TargetFrameSize );
     auto l32 = uint32_t( len );
+	auto l32_net = convert_endian(l32);
 
     NeedDataSize( QueueDataSize[(int)type] + sizeof( l32 ) + l32 );
 
+	item.convert_endian();
     AppendDataUnsafe( &item, QueueDataSize[(int)type] );
-    AppendDataUnsafe( &l32, sizeof( l32 ) );
+    AppendDataUnsafe( &l32_net, sizeof( l32_net ) );
     AppendDataUnsafe( ptr, l32 );
 }
 
@@ -3358,11 +3374,13 @@ void Profiler::SendSourceLocationPayload( uint64_t _ptr )
     assert( len > 2 );
     len -= 2;
     ptr += 2;
+	auto len_net = convert_endian(len);
 
     NeedDataSize( QueueDataSize[(int)QueueType::SourceLocationPayload] + sizeof( len ) + len );
 
+	item.convert_endian();
     AppendDataUnsafe( &item, QueueDataSize[(int)QueueType::SourceLocationPayload] );
-    AppendDataUnsafe( &len, sizeof( len ) );
+    AppendDataUnsafe( &len_net, sizeof( len_net ) );
     AppendDataUnsafe( ptr, len );
 }
 
@@ -3377,22 +3395,29 @@ void Profiler::SendCallstackPayload( uint64_t _ptr )
     const auto sz = *ptr++;
     const auto len = sz * sizeof( uint64_t );
     const auto l16 = uint16_t( len );
+	const auto l16_net = convert_endian(l16);
 
     NeedDataSize( QueueDataSize[(int)QueueType::CallstackPayload] + sizeof( l16 ) + l16 );
 
+	item.convert_endian();
     AppendDataUnsafe( &item, QueueDataSize[(int)QueueType::CallstackPayload] );
-    AppendDataUnsafe( &l16, sizeof( l16 ) );
+    AppendDataUnsafe( &l16_net, sizeof( l16_net ) );
 
     if( compile_time_condition<sizeof( uintptr_t ) == sizeof( uint64_t )>::value )
     {
-        AppendDataUnsafe( ptr, sizeof( uint64_t ) * sz );
+		for( uintptr_t i=0; i<sz; i++ )
+		{
+			auto val_net = convert_endian( ptr[i] );
+			AppendDataUnsafe( &val_net, sizeof( uint64_t ) );
+		}
     }
     else
     {
         for( uintptr_t i=0; i<sz; i++ )
         {
             const auto val = uint64_t( *ptr++ );
-            AppendDataUnsafe( &val, sizeof( uint64_t ) );
+			const auto val_net = convert_endian(val);
+            AppendDataUnsafe( &val_net, sizeof( uint64_t ) );
         }
     }
 }
@@ -3408,12 +3433,18 @@ void Profiler::SendCallstackPayload64( uint64_t _ptr )
     const auto sz = *ptr++;
     const auto len = sz * sizeof( uint64_t );
     const auto l16 = uint16_t( len );
+	const auto l16_net = convert_endian(l16);
 
     NeedDataSize( QueueDataSize[(int)QueueType::CallstackPayload] + sizeof( l16 ) + l16 );
 
+	item.convert_endian();
     AppendDataUnsafe( &item, QueueDataSize[(int)QueueType::CallstackPayload] );
-    AppendDataUnsafe( &l16, sizeof( l16 ) );
-    AppendDataUnsafe( ptr, sizeof( uint64_t ) * sz );
+    AppendDataUnsafe( &l16_net, sizeof( l16_net ) );
+	for( uint64_t i=0; i<sz; i++ )
+	{
+		auto val_net = convert_endian( ptr[i] );
+		AppendDataUnsafe( &val_net, sizeof( uint64_t ) );
+	}
 }
 
 void Profiler::SendCallstackAlloc( uint64_t _ptr )
@@ -3427,11 +3458,13 @@ void Profiler::SendCallstackAlloc( uint64_t _ptr )
     uint16_t len;
     memcpy( &len, ptr, 2 );
     ptr += 2;
+	auto len_net = convert_endian(len);
 
     NeedDataSize( QueueDataSize[(int)QueueType::CallstackAllocPayload] + sizeof( len ) + len );
 
+	item.convert_endian();
     AppendDataUnsafe( &item, QueueDataSize[(int)QueueType::CallstackAllocPayload] );
-    AppendDataUnsafe( &len, sizeof( len ) );
+    AppendDataUnsafe( &len_net, sizeof( len_net ) );
     AppendDataUnsafe( ptr, len );
 }
 
@@ -3652,7 +3685,7 @@ void Profiler::SymbolWorker()
 bool Profiler::HandleServerQuery()
 {
     ServerQueryPacket payload;
-    if( !m_sock->Read( &payload, sizeof( payload ), 10 ) ) return false;
+    if( !m_sock->Read( payload, 10 ) ) return false;
 
     uint8_t type;
     uint64_t ptr;

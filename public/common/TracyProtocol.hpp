@@ -1,6 +1,7 @@
 #ifndef __TRACYPROTOCOL_HPP__
 #define __TRACYPROTOCOL_HPP__
 
+#include "TracyEndian.hpp"
 #include <limits>
 #include <stdint.h>
 
@@ -9,8 +10,8 @@ namespace tracy
 
 constexpr unsigned Lz4CompressBound( unsigned isize ) { return isize + ( isize / 255 ) + 16; }
 
-enum : uint32_t { ProtocolVersion = 76 };
-enum : uint16_t { BroadcastVersion = 3 };
+enum : uint32_t { ProtocolVersion = 77 };
+enum : uint16_t { BroadcastVersion = 4 };
 
 using lz4sz_t = uint32_t;
 
@@ -63,6 +64,12 @@ struct ServerQueryPacket
     ServerQuery type;
     uint64_t ptr;
     uint32_t extra;
+
+	void convert_endian()
+	{
+		ptr = ::convert_endian(ptr);
+		extra = ::convert_endian(extra);
+	}
 };
 
 enum { ServerQueryPacketSize = sizeof( ServerQueryPacket ) };
@@ -106,6 +113,21 @@ struct WelcomeMessage
     uint32_t cpuId;
     char programName[WelcomeMessageProgramNameSize];
     char hostInfo[WelcomeMessageHostInfoSize];
+
+    void convert_endian()
+    {
+        timerMul = ::convert_endian( timerMul );
+        initBegin = ::convert_endian( initBegin );
+        initEnd = ::convert_endian( initEnd );
+        resolution = ::convert_endian( resolution );
+        epoch = ::convert_endian( epoch );
+        exectime = ::convert_endian( exectime );
+        pid = ::convert_endian( pid );
+        samplingPeriod = ::convert_endian( samplingPeriod );
+        flags = ::convert_endian( flags );
+        cpuArch = ::convert_endian( cpuArch );
+        cpuId = ::convert_endian( cpuId );
+    }
 };
 
 enum { WelcomeMessageSize = sizeof( WelcomeMessage ) };
@@ -119,15 +141,30 @@ struct OnDemandPayloadMessage
 
 enum { OnDemandPayloadMessageSize = sizeof( OnDemandPayloadMessage ) };
 
+enum class NetworkByteOrder : uint8_t
+{
+    BigEndian,
+    LittleEndian
+};
 
 struct BroadcastMessage
 {
+    NetworkByteOrder byteOrder;
     uint16_t broadcastVersion;
     uint16_t listenPort;
     uint32_t protocolVersion;
     uint64_t pid;
     int32_t activeTime;        // in seconds
     char programName[WelcomeMessageProgramNameSize];
+
+    void convert_endian()
+    {
+        ::convert_endian( broadcastVersion );
+        ::convert_endian( listenPort );
+        ::convert_endian( protocolVersion );
+        ::convert_endian( pid );
+        ::convert_endian( activeTime );
+    }
 };
 
 struct BroadcastMessage_v2

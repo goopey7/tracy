@@ -864,6 +864,16 @@ private:
     ThreadCtxStatus ThreadCtxCheck( uint32_t threadId );
     bool CommitData();
 
+    tracy_force_inline bool AppendData( const QueueItem* data, size_t len )
+    {
+		QueueItem item;
+		memcpy(&item, data, len);
+		item.convert_endian();
+        const auto ret = NeedDataSize( len );
+        AppendDataUnsafe( &item, len );
+        return ret;
+    }
+
     tracy_force_inline bool AppendData( const void* data, size_t len )
     {
         const auto ret = NeedDataSize( len );

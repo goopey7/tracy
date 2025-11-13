@@ -2743,9 +2743,9 @@ void Worker::Exec()
 
     m_sock.Send( HandshakeShibboleth, HandshakeShibbolethSize );
     uint32_t protocolVersion = ProtocolVersion;
-    m_sock.Send( &protocolVersion, sizeof( protocolVersion ) );
+    m_sock.Send( protocolVersion );
     HandshakeStatus handshake;
-    if( !m_sock.Read( &handshake, sizeof( handshake ), 10, ShouldExit ) )
+    if( !m_sock.Read( handshake, 10, ShouldExit ) )
     {
         m_handshake.store( HandshakeDropped, std::memory_order_relaxed );
         goto close;
@@ -2774,7 +2774,7 @@ void Worker::Exec()
 
     {
         WelcomeMessage welcome;
-        if( !m_sock.Read( &welcome, sizeof( welcome ), 10, ShouldExit ) )
+        if( !m_sock.Read( welcome, 10, ShouldExit ) )
         {
             m_handshake.store( HandshakeDropped, std::memory_order_relaxed );
             goto close;
@@ -2815,7 +2815,7 @@ void Worker::Exec()
         if( m_onDemand )
         {
             OnDemandPayloadMessage onDemand;
-            if( !m_sock.Read( &onDemand, sizeof( onDemand ), 10, ShouldExit ) )
+            if( !m_sock.Read( onDemand, 10, ShouldExit ) )
             {
                 m_handshake.store( HandshakeDropped, std::memory_order_relaxed );
                 goto close;
@@ -3072,8 +3072,10 @@ void Worker::HandleFailure( const char* ptr, const char* end )
     }
 }
 
-void Worker::DispatchFailure( const QueueItem& ev, const char*& ptr )
+void Worker::DispatchFailure( const QueueItem& evIn, const char*& ptr )
 {
+	QueueItem ev = evIn;
+	ev.convert_endian();
     if( ev.hdr.idx >= (int)QueueType::StringData )
     {
         ptr += sizeof( QueueHeader ) + sizeof( QueueStringTransfer );
@@ -3172,7 +3174,7 @@ void Worker::Query( ServerQuery type, uint64_t data, uint32_t extra )
     if( m_serverQuerySpaceLeft > 0 && m_serverQueryQueuePrio.empty() && m_serverQueryQueue.empty() )
     {
         m_serverQuerySpaceLeft--;
-        m_sock.Send( &query, ServerQueryPacketSize );
+        m_sock.Send( query );
     }
     else if( IsQueryPrio( type ) )
     {
@@ -3187,7 +3189,7 @@ void Worker::Query( ServerQuery type, uint64_t data, uint32_t extra )
 void Worker::QueryTerminate()
 {
     ServerQueryPacket query { ServerQueryTerminate, 0, 0 };
-    m_sock.Send( &query, ServerQueryPacketSize );
+    m_sock.Send( query );
 }
 
 void Worker::QuerySourceFile( const char* fn, const char* image )
@@ -3242,8 +3244,10 @@ void Worker::QueryCallstackFrame( uint64_t addr )
     Query( ServerQueryCallstackFrame, addr );
 }
 
-bool Worker::DispatchProcess( const QueueItem& ev, const char*& ptr )
+bool Worker::DispatchProcess( const QueueItem& evIn, const char*& ptr )
 {
+	QueueItem ev = evIn;
+	ev.convert_endian();
     if( ev.hdr.idx >= (int)QueueType::StringData )
     {
         ptr += sizeof( QueueHeader ) + sizeof( QueueStringTransfer );
@@ -3251,8 +3255,9 @@ bool Worker::DispatchProcess( const QueueItem& ev, const char*& ptr )
             ev.hdr.type == QueueType::SymbolCode ||
             ev.hdr.type == QueueType::SourceCode )
         {
-            uint32_t sz;
-            memcpy( &sz, ptr, sizeof( sz ) );
+            uint32_t sz_net;
+            memcpy( &sz_net, ptr, sizeof( sz_net ) );
+			uint32_t sz = convert_endian(sz_net);
             ptr += sizeof( sz );
             switch( ev.hdr.type )
             {
@@ -3275,8 +3280,9 @@ bool Worker::DispatchProcess( const QueueItem& ev, const char*& ptr )
         }
         else
         {
-            uint16_t sz;
-            memcpy( &sz, ptr, sizeof( sz ) );
+            uint16_t sz_net;
+            memcpy( &sz_net, ptr, sizeof( sz_net ) );
+			uint16_t sz = convert_endian(sz_net);
             ptr += sizeof( sz );
             switch( ev.hdr.type )
             {
@@ -3326,23 +3332,30 @@ bool Worker::DispatchProcess( const QueueItem& ev, const char*& ptr )
     }
     else
     {
-        uint16_t sz;
         switch( ev.hdr.type )
         {
         case QueueType::SingleStringData:
-            ptr += sizeof( QueueHeader );
-            memcpy( &sz, ptr, sizeof( sz ) );
-            ptr += sizeof( sz );
-            AddSingleString( ptr, sz );
-            ptr += sz;
-            return true;
+			{
+				ptr += sizeof( QueueHeader );
+				uint16_t sz_net;
+				memcpy( &sz_net, ptr, sizeof( sz_net ) );
+				ptr += sizeof( sz_net );
+				uint16_t sz = convert_endian(sz_net);
+				AddSingleString( ptr, sz );
+				ptr += sz;
+				return true;
+			}
         case QueueType::SecondStringData:
-            ptr += sizeof( QueueHeader );
-            memcpy( &sz, ptr, sizeof( sz ) );
-            ptr += sizeof( sz );
-            AddSecondString( ptr, sz );
-            ptr += sz;
-            return true;
+			{
+				ptr += sizeof( QueueHeader );
+				uint16_t sz_net;
+				memcpy( &sz_net, ptr, sizeof( sz_net ) );
+				ptr += sizeof( sz_net );
+				uint16_t sz = convert_endian(sz_net);
+				AddSecondString( ptr, sz );
+				ptr += sz;
+				return true;
+			}
         default:
             ptr += QueueDataSize[ev.hdr.idx];
             return Process( ev );
@@ -3735,7 +3748,9 @@ void Worker::AddSourceLocationPayload( const char* data, size_t sz )
 
     uint32_t color, line;
     memcpy( &color, data, 4 );
+	color = convert_endian(color);
     memcpy( &line, data + 4, 4 );
+	line = convert_endian(line);
     data += 8;
     auto end = data + strlen( data );
 
@@ -4013,7 +4028,7 @@ void Worker::AddCallstackPayload( const char* _data, size_t _sz )
     auto src = (uint64_t*)_data;
     for( size_t i=0; i<sz; i++ )
     {
-        *dst++ = PackPointer( *src++ );
+        *dst++ = PackPointer( convert_endian(*src++) );
     }
 
     auto arr = (VarArray<CallstackFrameId>*)( mem + sz * sizeof( CallstackFrameId ) );
@@ -4052,9 +4067,12 @@ void Worker::AddCallstackAllocPayload( const char* data )
         uint16_t sz;
         CallstackFrame cf;
         memcpy( &cf.line, data, 4 ); data += 4;
+		cf.line = convert_endian(cf.line);
         memcpy( &sz, data, 2 ); data += 2;
+		sz = convert_endian(sz);
         cf.name = StoreString( data, sz ).idx; data += sz;
         memcpy( &sz, data, 2 ); data += 2;
+		sz = convert_endian(sz);
         cf.file = StoreString( data, sz ).idx; data += sz;
         cf.symAddr = 0;
         CallstackFrameData cfd = { &cf, 1 };
