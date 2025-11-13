@@ -2703,6 +2703,7 @@ void Worker::Network()
         auto buf = m_buffer + m_bufferOffset;
         lz4sz_t lz4sz;
         if( !m_sock.Read( &lz4sz, sizeof( lz4sz ), 10, ShouldExit ) ) goto close;
+        lz4sz = convert_endian( lz4sz );
         if( !m_sock.Read( lz4buf.get(), lz4sz, 10, ShouldExit ) ) goto close;
         auto bb = m_bytes.load( std::memory_order_relaxed );
         m_bytes.store( bb + sizeof( lz4sz ) + lz4sz, std::memory_order_relaxed );

@@ -3286,7 +3286,8 @@ void Profiler::SafeCopyEpilog( char* buf )
 bool Profiler::SendData( const char* data, size_t len )
 {
     const lz4sz_t lz4sz = LZ4_compress_fast_continue( (LZ4_stream_t*)m_stream, data, m_lz4Buf + sizeof( lz4sz_t ), (int)len, LZ4Size, 1 );
-    memcpy( m_lz4Buf, &lz4sz, sizeof( lz4sz ) );
+    const lz4sz_t lz4sz_net = convert_endian( lz4sz );
+    memcpy( m_lz4Buf, &lz4sz_net, sizeof( lz4sz_net ) );
     return m_sock->Send( m_lz4Buf, lz4sz + sizeof( lz4sz_t ) ) != -1;
 }
 
