@@ -7,6 +7,16 @@
 #include <cstring>
 #include <type_traits>
 
+#ifdef _WIN32
+#define bswap16(x) _byteswap_ushort(x)
+#define bswap32(x) _byteswap_ulong(x)
+#define bswap64(x) _byteswap_uint64(x)
+#else
+#define bswap16(x) __builtin_bswap16(x)
+#define bswap32(x) __builtin_bswap32(x)
+#define bswap64(x) __builtin_bswap64(x)
+#endif
+
 constexpr std::endian network_byteorder()
 {
 #if TRACY_BIGENDIAN
@@ -29,15 +39,15 @@ constexpr T convert_endian( T value ) noexcept
     }
     else if constexpr( sizeof( T ) == 2 )
     {
-        return static_cast<T>( __builtin_bswap16( static_cast<uint16_t>( value ) ) );
+        return static_cast<T>( bswap16( static_cast<uint16_t>( value ) ) );
     }
     else if constexpr( sizeof( T ) == 4 )
     {
-        return static_cast<T>( __builtin_bswap32( static_cast<uint32_t>( value ) ) );
+        return static_cast<T>( bswap32( static_cast<uint32_t>( value ) ) );
     }
     else if constexpr( sizeof( T ) == 8 )
     {
-        return static_cast<T>( __builtin_bswap64( static_cast<uint64_t>( value ) ) );
+        return static_cast<T>( bswap64( static_cast<uint64_t>( value ) ) );
     }
 }
 
