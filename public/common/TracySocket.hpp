@@ -35,7 +35,8 @@ public:
 
     int Send( const void* buf, int len );
 
-    template<TrivialInteger T>
+    template<typename T>
+        requires std::is_integral_v<T>
     int Send( T value )
     {
         auto network_val = convert_endian( value );
@@ -50,14 +51,15 @@ public:
         return Send( &network_val, sizeof( network_val ) );
     }
 
-    template<FloatingPoint T>
+    template<typename T>
+		requires std::is_floating_point_v<T>
     int Send( T value )
     {
         auto network_val = convert_endian( value );
         return Send( &network_val, sizeof( network_val ) );
     }
 
-    template<TrivialStruct T>
+    template<StructWithConvertEndianMethod T>
     int Send( const T& value )
     {
         auto network_val = value;
@@ -82,7 +84,8 @@ public:
         return true;
     }
 
-    template<TrivialInteger T, typename ShouldExit>
+    template<typename T, typename ShouldExit>
+        requires std::is_integral_v<T>
     bool Read( T& value, int timeout, ShouldExit exitCb )
     {
         int len = sizeof( value );
@@ -110,7 +113,8 @@ public:
         return true;
     }
 
-    template<FloatingPoint T, typename ShouldExit>
+    template<typename T, typename ShouldExit>
+        requires std::is_floating_point_v<T>
     bool Read( T& value, int timeout, ShouldExit exitCb )
     {
         int len = sizeof( value );
@@ -125,7 +129,7 @@ public:
         return true;
     }
 
-    template<TrivialStruct T, typename ShouldExit>
+    template<StructWithConvertEndianMethod T, typename ShouldExit>
     bool Read( T& value, int timeout, ShouldExit exitCb )
     {
         if constexpr( std::endian::native == network_byteorder() )
@@ -148,7 +152,8 @@ public:
 
     bool ReadRaw( void* buf, int len, int timeout );
 
-    template<TrivialInteger T>
+    template<typename T>
+        requires std::is_integral_v<T>
     bool Read( T& value, int timeout )
     {
         T network_val;
@@ -173,7 +178,8 @@ public:
         return true;
     }
 
-    template<FloatingPoint T>
+    template<typename T>
+		requires std::is_floating_point_v<T>
     bool Read( T& value, int timeout )
     {
         T network_val;
@@ -185,7 +191,7 @@ public:
         return true;
     }
 
-    template<TrivialStruct T>
+    template<StructWithConvertEndianMethod T>
     bool Read( T& value, int timeout )
     {
         if constexpr( std::endian::native == network_byteorder() )
@@ -265,7 +271,8 @@ public:
 
     int Send( uint16_t port, const void* data, int len );
 
-    template<TrivialInteger T>
+    template<typename T>
+        requires std::is_integral_v<T>
     int Send( uint16_t port, T value )
     {
         auto network_val = convert_endian( value );
@@ -280,14 +287,15 @@ public:
         return Send( port, &network_val, sizeof( network_val ) );
     }
 
-    template<FloatingPoint T>
+    template<typename T>
+        requires std::is_floating_point_v<T>
     int Send( uint16_t port, T value )
     {
         auto network_val = convert_endian( value );
         return Send( port, &network_val, sizeof( network_val ) );
     }
 
-    template<TrivialStruct T>
+    template<StructWithConvertEndianMethod T>
     int Send( const uint16_t port, T& value )
     {
         auto network_val = value;

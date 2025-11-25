@@ -3311,7 +3311,7 @@ void Profiler::SendString( uint64_t str, const char* ptr, size_t len, QueueType 
 
     NeedDataSize( QueueDataSize[(int)type] + sizeof( l16 ) + l16 );
 
-	item.convert_endian();
+	convert_endian(item);
     AppendDataUnsafe( &item, QueueDataSize[(int)type] );
     AppendDataUnsafe( &l16_net, sizeof( l16_net ) );
     AppendDataUnsafe( ptr, l16 );
@@ -3366,7 +3366,7 @@ void Profiler::SendLongString( uint64_t str, const char* ptr, size_t len, QueueT
 
     NeedDataSize( QueueDataSize[(int)type] + sizeof( l32 ) + l32 );
 
-	item.convert_endian();
+	convert_endian(item);
     AppendDataUnsafe( &item, QueueDataSize[(int)type] );
     AppendDataUnsafe( &l32_net, sizeof( l32_net ) );
     AppendDataUnsafe( ptr, l32 );
@@ -3404,7 +3404,7 @@ void Profiler::SendSourceLocationPayload( uint64_t _ptr )
 
     NeedDataSize( QueueDataSize[(int)QueueType::SourceLocationPayload] + sizeof( len ) + len );
 
-	item.convert_endian();
+	convert_endian(item);
     AppendDataUnsafe( &item, QueueDataSize[(int)QueueType::SourceLocationPayload] );
     AppendDataUnsafe( &len_net, sizeof( len_net ) );
     AppendDataUnsafe( ptr, len );
@@ -3425,7 +3425,7 @@ void Profiler::SendCallstackPayload( uint64_t _ptr )
 
     NeedDataSize( QueueDataSize[(int)QueueType::CallstackPayload] + sizeof( l16 ) + l16 );
 
-	item.convert_endian();
+	convert_endian(item);
     AppendDataUnsafe( &item, QueueDataSize[(int)QueueType::CallstackPayload] );
     AppendDataUnsafe( &l16_net, sizeof( l16_net ) );
 
@@ -3463,7 +3463,7 @@ void Profiler::SendCallstackPayload64( uint64_t _ptr )
 
     NeedDataSize( QueueDataSize[(int)QueueType::CallstackPayload] + sizeof( l16 ) + l16 );
 
-	item.convert_endian();
+	convert_endian(item);
     AppendDataUnsafe( &item, QueueDataSize[(int)QueueType::CallstackPayload] );
     AppendDataUnsafe( &l16_net, sizeof( l16_net ) );
 	for( uint64_t i=0; i<sz; i++ )
@@ -3488,7 +3488,7 @@ void Profiler::SendCallstackAlloc( uint64_t _ptr )
 
     NeedDataSize( QueueDataSize[(int)QueueType::CallstackAllocPayload] + sizeof( len ) + len );
 
-	item.convert_endian();
+	convert_endian(item);
     AppendDataUnsafe( &item, QueueDataSize[(int)QueueType::CallstackAllocPayload] );
     AppendDataUnsafe( &len_net, sizeof( len_net ) );
     AppendDataUnsafe( ptr, len );

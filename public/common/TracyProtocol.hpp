@@ -137,6 +137,11 @@ struct OnDemandPayloadMessage
 {
     uint64_t frames;
     uint64_t currentTime;
+	void convert_endian()
+	{
+		frames = ::convert_endian(frames);
+		currentTime = ::convert_endian(currentTime);
+	}
 };
 
 enum { OnDemandPayloadMessageSize = sizeof( OnDemandPayloadMessage ) };

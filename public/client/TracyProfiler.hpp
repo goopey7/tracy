@@ -874,7 +874,7 @@ private:
     {
 		QueueItem item;
 		memcpy(&item, data, len);
-		item.convert_endian();
+		convert_endian(item);
         const auto ret = NeedDataSize( len );
         AppendDataUnsafe( &item, len );
         return ret;

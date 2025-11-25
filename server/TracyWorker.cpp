@@ -3076,7 +3076,7 @@ void Worker::HandleFailure( const char* ptr, const char* end )
 void Worker::DispatchFailure( const QueueItem& evIn, const char*& ptr )
 {
 	QueueItem ev = evIn;
-	ev.convert_endian();
+	convert_endian(ev);
     if( ev.hdr.idx >= (int)QueueType::StringData )
     {
         ptr += sizeof( QueueHeader ) + sizeof( QueueStringTransfer );
@@ -3248,7 +3248,7 @@ void Worker::QueryCallstackFrame( uint64_t addr )
 bool Worker::DispatchProcess( const QueueItem& evIn, const char*& ptr )
 {
 	QueueItem ev = evIn;
-	ev.convert_endian();
+	convert_endian(ev);
     if( ev.hdr.idx >= (int)QueueType::StringData )
     {
         ptr += sizeof( QueueHeader ) + sizeof( QueueStringTransfer );
