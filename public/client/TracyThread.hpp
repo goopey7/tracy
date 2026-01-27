@@ -26,7 +26,9 @@ public:
     ~ThreadExitHandler()
     {
 #ifdef TRACY_MANUAL_LIFETIME
+#ifndef __wii__
         rpmalloc_thread_finalize( 1 );
+#endif
         RpThreadInitDone = false;
 #endif
     }

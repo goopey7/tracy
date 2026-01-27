@@ -1298,10 +1298,18 @@ struct ProfilerThreadData
 #  endif
 };
 
+#ifndef __wii__
 std::atomic<int> RpInitDone { 0 };
 std::atomic<int> RpInitLock { 0 };
 thread_local bool RpThreadInitDone = false;
 thread_local bool RpThreadShutdown = false;
+#else
+// Wii stubs for rpmalloc compatibility                                                                                                               
+std::atomic<int> RpInitDone { 1 };  // Mark as initialized                                                                                            
+std::atomic<int> RpInitLock { 0 };                                                                                                                    
+thread_local bool RpThreadInitDone = true;   // Mark as initialized                                                                                   
+thread_local bool RpThreadShutdown = false;                                                                                                           
+#endif
 
 #  ifdef TRACY_MANUAL_LIFETIME
 ProfilerData* s_profilerData = nullptr;
@@ -1326,7 +1334,9 @@ TRACY_API void ShutdownProfiler()
     s_profilerData->~ProfilerData();
     tracy_free( s_profilerData );
     s_profilerData = nullptr;
+#ifndef __wii__
     rpmalloc_finalize();
+#endif
     RpThreadInitDone = false;
     RpInitDone.store( 0, std::memory_order_release );
 }

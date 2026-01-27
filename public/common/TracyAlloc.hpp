@@ -4,10 +4,15 @@
 #include <stdlib.h>
 
 #if defined TRACY_ENABLE && !defined __EMSCRIPTEN__ && !defined __wii__
+#  include "../client/tracy_rpmalloc.hpp"
 #  include "TracyApi.h"
 #  include "TracyForceInline.hpp"
-#  include "../client/tracy_rpmalloc.hpp"
 #  define TRACY_USE_RPMALLOC
+#endif
+
+#if defined TRACY_ENABLE && defined __wii__
+//#  include "../client/TracyProfiler.hpp"
+//#  include "tracy/TracyC.h"
 #endif
 
 namespace tracy
@@ -25,7 +30,9 @@ static inline void* tracy_malloc( size_t size )
     InitRpmalloc();
     return rpmalloc( size );
 #else
-    return malloc( size );
+    void* ptr = malloc( size );
+    //tracy::Profiler::MemAllocCallstackNamed( ptr, size, TRACY_CALLSTACK, false, "TracyInternal" );
+    return ptr;
 #endif
 }
 
@@ -45,6 +52,7 @@ static inline void tracy_free( void* ptr )
     rpfree( ptr );
 #else
     free( ptr );
+    //tracy::Profiler::MemFreeCallstackNamed( ptr, TRACY_CALLSTACK, false, "TracyInternal" );
 #endif
 }
 
