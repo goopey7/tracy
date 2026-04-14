@@ -61,20 +61,25 @@ private:
     HANDLE m_hnd;
 };
 #elif __wii__
+#include <malloc.h>
 class Thread
 {
 public:
+    static constexpr u32 STACK_SIZE = 128 * 1024;
+
     Thread( void ( *func )( void* ptr ), void* ptr )
         : m_func( func )
         , m_ptr( ptr )
+        , m_stack( memalign( 32, STACK_SIZE ) )
     {
         static constexpr u8 priority = 64;
-        LWP_CreateThread( &m_thread, Launch, this, nullptr, 0, priority );
+        LWP_CreateThread( &m_thread, Launch, this, m_stack, STACK_SIZE, priority );
     }
 
     ~Thread()
     {
         LWP_JoinThread( m_thread, nullptr );
+        free( m_stack );
     }
 
     [[nodiscard]] lwp_t Handle() const { return m_thread; }
@@ -88,6 +93,7 @@ private:
 
     void ( *m_func )( void* ptr );
     void* m_ptr;
+    void* m_stack;
     lwp_t m_thread;
 };
 #else
