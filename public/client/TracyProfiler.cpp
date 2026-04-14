@@ -1373,7 +1373,13 @@ static ProfilerData& GetProfilerData()
 // if this function is compiled into a shared object. Unfortunately, centos7 ships with glibc 2.17. If running
 // on old GCC, use the old-fashioned way as a workaround
 // See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=85400
-#if !defined(__clang__) && defined(__GNUC__) && ((__GNUC__ < 8) || ((__GNUC__ == 8) && (__GNUC_MINOR__ < 4)))
+#if defined(__wii__)
+static ProfilerThreadData& GetProfilerThreadData()
+{
+    static ProfilerThreadData data( GetProfilerData() );
+    return data;
+}
+#elif !defined(__clang__) && defined(__GNUC__) && ((__GNUC__ < 8) || ((__GNUC__ == 8) && (__GNUC_MINOR__ < 4)))
 struct ProfilerThreadDataKey
 {
 public:
