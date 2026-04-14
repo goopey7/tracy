@@ -1,5 +1,7 @@
 #pragma once
 
+#include <network.h>
+
 #define socket(d, t, p)       net_socket(d, t, p)
 #define bind(s, a, l)         net_bind(s, a, l)
 #define listen(s, b)          net_listen(s, b)
@@ -16,3 +18,10 @@
 #define shutdown(s, h)        net_shutdown(s, h)
 #define recvfrom(s, mem, len, flags, from, fromlen) net_recvfrom(s, mem, len, flags, from, fromlen)
 #define sendto(s, data, len, flags, to, tolen) net_sendto(s, data, len, flags, to, tolen)
+#ifndef POLLIN
+#define POLLIN   0x0001
+#define POLLOUT  0x0008
+#define POLLERR  0x0020
+#define POLLHUP  0x0040
+#define POLLNVAL 0x0080
+#endif

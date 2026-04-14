@@ -76,26 +76,7 @@ void InitWinSock()
 #elif __wii__
 bool InitWiiNetwork()
 {
-    static bool WiiNetworkInitialized = false;
-    static bool WiiNetworkAvailable = false;
-
-    if( WiiNetworkInitialized )
-    {
-        return WiiNetworkAvailable;
-    }
-
-    WiiNetworkInitialized = true;
-
-    char local_ip[16] = { 0 };
-    char gateway[16] = { 0 };
-    char netmask[16] = { 0 };
-
-    static constexpr bool use_dhcp = true;
-    static constexpr int max_retries = 20;
-    s32 ret = if_config( local_ip, netmask, gateway, use_dhcp, max_retries );
-
-    WiiNetworkAvailable = ret >= 0;
-    return WiiNetworkAvailable;
+    return true;
 }
 #endif
 
@@ -429,8 +410,16 @@ int Socket::Send( const void* _buf, int len )
     auto start = buf;
     while( len > 0 )
     {
+#ifdef __wii__
+        auto ret = send( sock, buf, len, 0 );
+#else
         auto ret = send( sock, buf, len, MSG_NOSIGNAL );
+#endif
+#ifdef __wii__
+        if( ret < 0 ) return -1;
+#else
         if( ret == -1 ) return -1;
+#endif
         len -= ret;
         buf += ret;
     }
@@ -446,7 +435,7 @@ int Socket::GetSendBufSize()
     getsockopt( sock, SOL_SOCKET, SO_SNDBUF, (char*)&bufSize, &sz );
 #elif __wii__
     socklen_t sz = sizeof( bufSize );
-    getsockopt( sock, SOL_SOCKET, SO_SNDBUF, &bufSize, sz );
+    getsockopt( sock, SOL_SOCKET, SO_SNDBUF, &bufSize, &sz );
 #else
     socklen_t sz = sizeof( bufSize );
     getsockopt( sock, SOL_SOCKET, SO_SNDBUF, &bufSize, &sz );
@@ -499,6 +488,7 @@ int Socket::Recv( void* _buf, int len, int timeout )
     fd.events = POLLIN;
 #endif
 
+#ifdef __wii__
     if( poll( &fd, 1, timeout ) > 0 )
     {
         return recv( sock, buf, len, 0 );
@@ -507,6 +497,16 @@ int Socket::Recv( void* _buf, int len, int timeout )
     {
         return -1;
     }
+#else
+    if( poll( &fd, 1, timeout ) > 0 )
+    {
+        return recv( sock, buf, len, 0 );
+    }
+    else
+    {
+        return -1;
+    }
+#endif
 }
 
 int Socket::ReadUpTo( void* _buf, int len )
@@ -709,21 +709,22 @@ bool ListenSocket::Listen( uint16_t port, int backlog )
 Socket* ListenSocket::Accept()
 {
 #ifdef __wii__
-	struct sockaddr_in remote;
-#else
-    struct sockaddr_storage remote;
-#endif
+    struct sockaddr_in remote;
     socklen_t sz = sizeof( remote );
 
-#ifdef __wii__
-    struct pollsd fd;
-    fd.socket = (socket_t)m_sock;
-    fd.events = POLLIN;
+    int sock = accept( m_sock, (sockaddr*)&remote, &sz );
+    if( sock == -1 ) return nullptr;
+
+    auto ptr = (Socket*)tracy_malloc( sizeof( Socket ) );
+    new(ptr) Socket( sock );
+    return ptr;
 #else
+    struct sockaddr_storage remote;
+    socklen_t sz = sizeof( remote );
+
     struct pollfd fd;
     fd.fd = (socket_t)m_sock;
     fd.events = POLLIN;
-#endif
 
     if( poll( &fd, 1, 10 ) > 0 )
     {
@@ -743,6 +744,7 @@ Socket* ListenSocket::Accept()
     {
         return nullptr;
     }
+#endif
 }
 
 void ListenSocket::Close()
