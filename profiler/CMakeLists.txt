@@ -2,12 +2,12 @@ cmake_minimum_required(VERSION 3.25)
 
 option(NO_FILESELECTOR "Disable the file selector" OFF)
 option(GTK_FILESELECTOR "Use the GTK file selector on Linux instead of the xdg-portal one" OFF)
-option(LEGACY "Instead of Wayland, use the legacy X11 backend on Linux" OFF)
+option(LEGACY "Instead of Wayland, use the legacy X11 backend on Linux" ON)
 option(NO_ISA_EXTENSIONS "Disable ISA extensions (don't pass -march=native or -mcpu=native to the compiler)" OFF)
 option(NO_STATISTICS "Disable calculation of statistics" OFF)
 option(SELF_PROFILE "Enable self-profiling" OFF)
 option(SANITIZE "Sanitizer parameters" OFF)
-option(TRACY_BIGENDIAN "Send and receive data in big endian byte order" OFF)
+option(TRACY_BIGENDIAN "Send and receive data in big endian byte order" ON)
 
 include(${CMAKE_CURRENT_LIST_DIR}/../cmake/version.cmake)
 
@@ -259,6 +259,7 @@ if(NOT EMSCRIPTEN)
         tidy-static
         TracyPugixml
         usearch
+        tbb
     )
 endif()
 
